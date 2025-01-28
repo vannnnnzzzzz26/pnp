@@ -6,12 +6,7 @@ session_start();
 include '../connection/dbconn.php'; 
 include '../includes/bypass.php';
 
-// Fetch barangay name if not already set in session
-if (!isset($_SESSION['barangay_name']) && isset($_SESSION['barangays_id'])) {
-    $stmt = $pdo->prepare("SELECT barangay_name FROM tbl_users_barangay WHERE barangays_id = ?");
-    $stmt->execute([$_SESSION['barangays_id']]);
-    $_SESSION['barangay_name'] = $stmt->fetchColumn();
-}
+
 
 // Initialize user information
 $firstName = $_SESSION['first_name'];
@@ -164,7 +159,7 @@ try {
               JOIN tbl_users u ON c.user_id = u.user_id  
 
     LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
-    WHERE (c.status IN ('settled_in_barangay', 'rejected')) AND b.barangay_name = ?
+    WHERE (c.status IN ('settled_in_barangay', 'rejected')) AND c.barangay_saan = ?
     AND (c.complaint_name LIKE ? OR c.complaints LIKE ? OR cc.complaints_category LIKE ? OR u.gender LIKE ? OR u.place_of_birth LIKE ? OR u.educational_background LIKE ? OR u.civil_status LIKE ?)
     ORDER BY c.date_filed ASC
     LIMIT ?, ?

@@ -92,7 +92,7 @@ function fetchDashboardData($pdo, $year, $month,  $month_from, $month_to) {
 $data = fetchDashboardData($pdo, $year, $month,  $month_from, $month_to);
 
 // Fetch complaints by barangay data
-function fetchComplaintsByBarangay($pdo, $year, $month,  $month_from, $month_to) {
+function fetchComplaintsByBarangay($pdo, $year, $month, $month_from, $month_to) {
     try {
         $whereClauses = [];
         $params = [];
@@ -107,34 +107,30 @@ function fetchComplaintsByBarangay($pdo, $year, $month,  $month_from, $month_to)
             $params[] = $month;
         }
 
-
+        $dateConditions = [];
         if ($month_from && $month_to) {
             $dateConditions[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
-            $paramsTotal[] = $month_from;
-            $paramsTotal[] = $month_to;
-          
-            $paramsSettledBarangay[] = $month_from;
-            $paramsSettledBarangay[] = $month_to;
-            $paramsRejected[] = $month_from;
-            $paramsRejected[] = $month_to;
+            $params[] = $month_from;
+            $params[] = $month_to;
         } elseif ($month_from) {
             $dateConditions[] = "MONTH(c.date_filed) >= ?";
-            $paramsSettledBarangay[] = $month_from;
-            $paramsRejected[] = $month_from;
+            $params[] = $month_from;
         } elseif ($month_to) {
             $dateConditions[] = "MONTH(c.date_filed) <= ?";
-            $paramsTotal[] = $month_to;
-            $paramsSettledBarangay[] = $month_to;
-            $paramsRejected[] = $month_to;
+            $params[] = $month_to;
         }
+
+        if (!empty($dateConditions)) {
+            $whereClauses[] = implode(' AND ', $dateConditions);
+        }
+
         $whereSql = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
         $stmt = $pdo->prepare("
-            SELECT ub.barangay_name, COUNT(c.complaints_id) AS complaint_count
+            SELECT c.barangay_saan, COUNT(c.complaints_id) AS complaint_count
             FROM tbl_complaints c
-            JOIN tbl_users_barangay ub ON c.barangays_id = ub.barangays_id
             $whereSql
-            GROUP BY ub.barangay_name
+            GROUP BY c.barangay_saan
         ");
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -144,7 +140,9 @@ function fetchComplaintsByBarangay($pdo, $year, $month,  $month_from, $month_to)
     }
 }
 
-$barangayData = fetchComplaintsByBarangay($pdo, $year, $month,  $month_from, $month_to);
+// Example usage
+$barangayData = fetchComplaintsByBarangay($pdo, $year, $month, $month_from, $month_to);
+
 
 // Fetch gender data
 // Fetch gender data
@@ -200,7 +198,7 @@ $purokData = fetchPurokData($pdo, $year, $month, $barangay_name, $month_from, $m
 /// Fetch complaint categories data
 function fetchComplaintCategoriesData($pdo, $year, $month, $barangay_name, $month_from, $month_to) {
     try {
-        $whereClauses = ["ub.barangay_name = ?"];
+        $whereClauses = ["c.barangay_saan = ?"];
         $params = [$barangay_name];
 
         if ($year) {
@@ -231,7 +229,6 @@ function fetchComplaintCategoriesData($pdo, $year, $month, $barangay_name, $mont
             SELECT cc.complaints_category, COUNT(c.complaints_id) AS category_count
             FROM tbl_complaints c
             JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
-            JOIN tbl_users_barangay ub ON c.barangays_id = ub.barangays_id
             WHERE 1=1 $whereSql
             GROUP BY cc.complaints_category
         ");
@@ -479,8 +476,27 @@ include '../includes/edit-profile.php';
                 </div>
             </div>
         </div>
+
+     
+    <div class="card">
+        <div class="card-body">
+            <h2>Top 5 Complaint Categories</h2>
+
+            <div class="chart-container d-flex justify-content-center align-items-center" style="height: 20rem;">                <canvas id="topCategoriesChart"></canvas>
+            </div>
+            <div class="analytics-info mt-3">
+       
+            </div>
+        </div>
     </div>
 </div>
+    </div>
+</div>
+
+
+
+
+
 
        
     </div>
@@ -488,7 +504,7 @@ include '../includes/edit-profile.php';
 
 
 
-    <script>
+<script>
 
 document.addEventListener('DOMContentLoaded', function () {
     var profilePic = document.querySelector('.profile');
@@ -515,7 +531,7 @@ var purokChart = new Chart(ctxPurok, {
             data: purokDataValues,
             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
             borderColor: '#fff',
-            borderWidth: 1
+            borderWidth: 10
         }]
     },
     options: {
@@ -523,7 +539,7 @@ var purokChart = new Chart(ctxPurok, {
         cutout: '50%',
         plugins: {
             legend: {
-                display: false // Hide the legend if needed
+                display: true // Hide the legend if needed
             }
         }
     }
@@ -541,7 +557,7 @@ document.getElementById('purokMaxInfo').textContent = `${purokDataLabels[maxPuro
     var totalCategoryCount = categoryDataValues.reduce((a, b) => a + b, 0); // Total count of complaints in categories
 
     var categoryChart = new Chart(ctxCategory, {
-        type: 'pie', // Changed to pie chart
+        type: 'polarArea', // Changed to pie chart
         data: {
             labels: categoryDataLabels.map((label, index) => `${label} (${((categoryDataValues[index] / totalCategoryCount) * 100).toFixed(1)}%)`), // Add percentages to labels
             datasets: [{
@@ -556,7 +572,7 @@ document.getElementById('purokMaxInfo').textContent = `${purokDataLabels[maxPuro
                     '#5a5c69'  // Gray
                 ],
                 borderColor: '#fff',
-                borderWidth: 1
+                borderWidth: 7
             }]
         },
         options: {
@@ -573,7 +589,72 @@ document.getElementById('purokMaxInfo').textContent = `${purokDataLabels[maxPuro
     // Find the highest value in category data
     var maxCategoryValue = Math.max(...categoryDataValues);
     var maxCategoryIndex = categoryDataValues.indexOf(maxCategoryValue);
+   
     document.getElementById('categoryMaxInfo').textContent = `${categoryDataLabels[maxCategoryIndex]}: ${((maxCategoryValue / totalCategoryCount) * 100).toFixed(1)}%`;
+
+
+
+    var ctxTopCategories = document.getElementById('topCategoriesChart').getContext('2d');
+    var sortedCategoryData = <?php echo json_encode($categoryData); ?> // Assuming `$categoryData` contains 'complaints_category' and 'category_count'
+        .sort((a, b) => b.category_count - a.category_count) // Sort by count in descending order
+        .slice(0, 5); // Select top 5 categories
+
+    var topCategoryLabels = sortedCategoryData.map(item => item.complaints_category);
+    var topCategoryCounts = sortedCategoryData.map(item => item.category_count);
+    var totalTopCategoryCount = topCategoryCounts.reduce((a, b) => a + b, 0); // Total of top 5 complaints
+
+    // Horizontal Bar Chart for Top 5 Categories
+    var topCategoriesChart = new Chart(ctxTopCategories, {
+        type: 'bar',
+        data: {
+            labels: topCategoryLabels.map((label, index) => 
+                `${label} (${((topCategoryCounts[index] / totalTopCategoryCount) * 100).toFixed(1)}%)`),
+            datasets: [{
+                data: topCategoryCounts,
+                backgroundColor: [
+                    '#4e73df', // Blue
+                    '#1cc88a', // Green
+                    '#36b9cc', // Light Blue
+                    '#f6c23e', // Yellow
+                    '#e74a3b'  // Red
+                ],
+                borderColor: '#fff',
+                borderWidth: 10,
+                barBorderRadius: 15// This adds rounded corners to the bars
+
+                
+
+            }]
+        },
+        options: {
+            indexAxis: 'y', // Horizontal bar chart
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false // Hide legend
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: false,
+                        text: 'Number of Complaints'
+                    },
+                    beginAtZero: true
+                },
+                y: {
+                    title: {
+                        display: false, // Remove title from the Y-axis
+                    }
+                }
+            }
+        }
+    });
+
+    // Display top category with percentage
+    var maxTopCategoryValue = Math.max(...topCategoryCounts);
+    var maxTopCategoryIndex = topCategoryCounts.indexOf(maxTopCategoryValue);
+    document.getElementById('topCategoryInfo').textContent = `${topCategoryLabels[maxTopCategoryIndex]}: ${((maxTopCategoryValue / totalTopCategoryCount) * 100).toFixed(1)}%`;
 });
 
 

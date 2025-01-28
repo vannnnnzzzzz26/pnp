@@ -107,11 +107,12 @@ function fetchDashboardData($pdo, $year, $month,  $month_from, $month_to) {
 $data = fetchDashboardData($pdo, $year, $month,$month_from, $month_to,);
 
 // Fetch complaints by barangay data
-function fetchComplaintsByBarangay($pdo, $year, $month,$month_from, $month_to) {
+function fetchComplaintsByBarangay($pdo, $year, $month, $month_from, $month_to) {
     try {
         $whereClauses = [];
         $params = [];
 
+        // Build the WHERE clauses based on the provided parameters
         if ($year) {
             $whereClauses[] = "YEAR(c.date_filed) = ?";
             $params[] = $year;
@@ -134,14 +135,15 @@ function fetchComplaintsByBarangay($pdo, $year, $month,$month_from, $month_to) {
             $params[] = $month_to;
         }
 
+        // Create the WHERE SQL condition
         $whereSql = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
+        // Modify the SQL query to use 'barangay_saan' from the 'tbl_complaints' table
         $stmt = $pdo->prepare("
-            SELECT ub.barangay_name, COUNT(c.complaints_id) AS complaint_count
+            SELECT c.barangay_saan, COUNT(c.complaints_id) AS complaint_count
             FROM tbl_complaints c
-            JOIN tbl_users_barangay ub ON c.barangays_id = ub.barangays_id
-              $whereSql
-            GROUP BY ub.barangay_name
+            $whereSql
+            GROUP BY c.barangay_saan
         ");
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -150,6 +152,7 @@ function fetchComplaintsByBarangay($pdo, $year, $month,$month_from, $month_to) {
         exit;
     }
 }
+
 
 $barangayData = fetchComplaintsByBarangay($pdo, $year, $month,$month_from, $month_to);
 
@@ -570,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var ctxBarangay = document.getElementById('barangayChartSmall').getContext('2d');
     
     // Data from PHP
-    var barangayNames = <?php echo json_encode(array_column($barangayData, 'barangay_name')); ?>;
+    var barangayNames = <?php echo json_encode(array_column($barangayData, 'barangay_saan')); ?>;
     var complaintCounts = <?php echo json_encode(array_column($barangayData, 'complaint_count')); ?>;
 
     // Find the maximum number of complaints
@@ -603,7 +606,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     'rgba(153, 102, 255, 1)',
                     'rgba(255, 159, 64, 1)'
                 ],
-                borderWidth: 2,
+                borderWidth: 4,
+                barBorderRadius: 10,// This adds rounded corners to the bars
+
                 fill: false // Do not fill under the line
             }]
         },

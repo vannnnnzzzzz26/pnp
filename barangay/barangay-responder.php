@@ -7,13 +7,6 @@ include '../connection/dbconn.php';
 include '../includes/bypass.php';
 
 
-// Fetch barangay name if not already set in session
-if (!isset($_SESSION['barangay_name']) && isset($_SESSION['barangays_id'])) {
-    $stmt = $pdo->prepare("SELECT barangay_name FROM tbl_users_barangay WHERE barangays_id = ?");
-    $stmt->execute([$_SESSION['barangays_id']]);
-    $_SESSION['barangay_name'] = $stmt->fetchColumn();
-}
-
 $firstName = $_SESSION['first_name'];
 $middleName = $_SESSION['middle_name'];
 $lastName = $_SESSION['last_name'];
@@ -53,7 +46,7 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
         JOIN tbl_users u ON c.user_id = u.user_id  
         LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
         LEFT JOIN tbl_hearing_history h ON c.complaints_id = h.complaints_id
-        WHERE c.status = 'Approved' AND b.barangay_name = ?
+        WHERE c.status = 'Approved' AND c.barangay_saan = ?
         GROUP BY c.complaints_id
         ORDER BY c.date_filed ASC
         LIMIT ?, ?
@@ -434,7 +427,7 @@ function handleStatusChange(status) {
         <div class="mb-3">
             <label for="hearing-type" class="form-label">Hearing Type</label>
             <select class="form-select" id="hearing-type" name="hearing_type" >
-                <option value="" disabled selected>Select Hearing Type</option>
+                <option value="" >Select Hearing Type</option>
                 <option value="First Hearing">First Hearing</option>
                 <option value="Second Hearing">Second Hearing</option>
                 <option value="Third Hearing">Third Hearing</option>
@@ -444,7 +437,7 @@ function handleStatusChange(status) {
         <div class="mb-3">
                             <label for="hearing-status" class="form-label">Hearing Status</label>
                             <select class="form-select" id="hearing-status" name="hearing_status" >
-                                <option value="" disabled selected>Select Hearing Status</option>
+                                <option value="" >Select Hearing Status</option>
                                 <option value="Attended">Attended</option>
                                 <option value="Not Attended">Not Attended</option>
                                 <option value="Not Resolved">Not Resolved</option>
@@ -500,7 +493,7 @@ include 'complaints_viewmodal.php';
   <script>
 
 
-function getCurrentDate() {
+function getCurrentDate() { 
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are zero-based
