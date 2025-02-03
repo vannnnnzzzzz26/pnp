@@ -403,11 +403,11 @@ function handleStatusChange(status) {
 
 
 
-    <div class="modal fade" id="viewComplaintModal" tabindex="-1" aria-labelledby="viewComplaintModalLabel" aria-hidden="true">
+    <div class="modal fade" id="viewsComplaintModal" tabindex="-1" aria-labelledby="viewsComplaintModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="viewComplaintModalLabel">Complaint Details</h5>
+                <h5 class="modal-title" id="viewsComplaintModalLabel">Complaint Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -648,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const status = this.dataset.status;
 
             // Set the complaint ID as a data attribute on the modal
-            document.getElementById('viewComplaintModal').setAttribute('data-complaint-id', complaintId);
+            document.getElementById('viewsComplaintModal').setAttribute('data-complaint-id', complaintId);
 
             // Show the hearing section if the complaint status is 'Approved'
             document.getElementById('hearingSection').style.display = status === 'Approved' ? 'block' : 'none';

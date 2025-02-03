@@ -6,7 +6,7 @@ $middleName = $_SESSION['middle_name'];
 $lastName = $_SESSION['last_name'];
 $extensionName = $_SESSION['extension_name'] ?? '';
 $email = $_SESSION['email'] ?? '';
-$barangay_name = $_SESSION['barangay_name'] ?? '';
+$barangay_name = $_SESSION['barangay_saan'] ?? '';
 $pic_data = $_SESSION['pic_data'] ?? '';
 
 include '../connection/dbconn.php'; 
@@ -34,15 +34,15 @@ function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_
 
         // Modify the SQL query to filter by barangay if selected
         $sql = "
-            SELECT c.complaints_id, c.complaint_name, b.barangay_name
+            SELECT c.complaints_id, c.complaint_name, c.barangay_saan
             FROM tbl_complaints c
-            LEFT JOIN tbl_users_barangay b ON c.barangays_id = b.barangays_id
+     
             WHERE c.responds = 'pnp'
-            AND (c.complaint_name LIKE ? OR b.barangay_name LIKE ?)
+            AND (c.complaint_name LIKE ? OR c.barangay_saan LIKE ?)
         ";
 
         if (!empty($barangay_filter)) {
-            $sql .= " AND b.barangay_name = ? ";
+            $sql .= " AND c.barangay_saan = ? ";
         }
 
         $sql .= " ORDER BY c.date_filed ASC LIMIT ?, ?";
@@ -73,7 +73,7 @@ function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $complaint_id = htmlspecialchars($row['complaints_id']);
                 $complaint_name = htmlspecialchars($row['complaint_name']);
-                $barangay_name = htmlspecialchars($row['barangay_name']);
+                $barangay_name = htmlspecialchars($row['barangay_saan']);
 
                 echo "<tr>";
                 echo "<td class='align-middle'>{$row_number}</td>";
@@ -98,7 +98,7 @@ $stmt = $pdo->prepare("
     FROM tbl_complaints c
     LEFT JOIN tbl_users_barangay b ON c.barangays_id = b.barangays_id
     WHERE c.responds = 'pnp'
-    AND (c.complaint_name LIKE ? OR b.barangay_name LIKE ?)
+    AND (c.complaint_name LIKE ? OR c.barangay_saan LIKE ?)
 ");
 $search_query_like = '%' . $search_query . '%';
 $stmt->execute([$search_query_like, $search_query_like]);
@@ -192,9 +192,9 @@ include '../includes/pnp-bar.php';
             <option value="">All Barangays</option>
             <?php
             // Fetch distinct barangay names for the dropdown
-            $barangay_stmt = $pdo->query("SELECT DISTINCT barangay_name FROM tbl_users_barangay ORDER BY barangay_name ASC");
+            $barangay_stmt = $pdo->query("SELECT DISTINCT barangay_saan FROM tbl_complaints ORDER BY barangay_saan ASC");
             while ($barangay_row = $barangay_stmt->fetch(PDO::FETCH_ASSOC)) {
-                $barangay_name = htmlspecialchars($barangay_row['barangay_name']);
+                $barangay_name = htmlspecialchars($barangay_row['barangay_saan']);
                 $selected = (isset($_GET['barangay_filter']) && $_GET['barangay_filter'] === $barangay_name) ? 'selected' : '';
                 echo "<option value=\"$barangay_name\" $selected>$barangay_name</option>";
             }

@@ -113,11 +113,10 @@ include '../includes/edit-profile.php';
         <div class="container">
 
         
-            <h2 class="mt-3 mb-4">Barangay Logs - Settled Complaints</h2>
+            <h2 class="mt-3 mb-4">Barangay Logs -Rejects Complaints</h2>
         
             <table class="table table-bordered table-hover">
             <thead>
-
             <form method="POST">
     <label class="form-label">Sort by Status:</label>
 
@@ -198,7 +197,7 @@ try {
               JOIN tbl_users u ON c.user_id = u.user_id  
 
     LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
-    WHERE (c.status IN ('settled_in_barangay')) AND c.barangay_saan = ?
+    WHERE (c.status IN ('rejected')) AND c.barangay_saan = ?
     AND (c.complaint_name LIKE ? OR c.complaints LIKE ? OR cc.complaints_category LIKE ? OR u.gender LIKE ? OR u.place_of_birth LIKE ? OR u.educational_background LIKE ? OR u.civil_status LIKE ?)
     ORDER BY c.date_filed ASC
     LIMIT ?, ?

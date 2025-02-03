@@ -11,7 +11,7 @@ if (isset($_GET['id'])) {
         $stmt = $pdo->prepare("
             SELECT DISTINCT c.complaint_name, c.complaints AS description, c.date_filed, c.status, 
                    c.category_id, c.barangays_id,  c.complaints_person, 
-                   b.barangay_name, cat.complaints_category,
+                   c.barangay_saan, cat.complaints_category,
                    u.gender, u.place_of_birth, u.age, u.educational_background, u.civil_status,u.nationality, u.cp_number,
                    e.evidence_path,
                    h.hearing_date, h.hearing_time, h.hearing_type, h.hearing_status
@@ -57,7 +57,7 @@ if (isset($_GET['id'])) {
                 $date_filed = htmlspecialchars($row['date_filed']);
                 $status = htmlspecialchars($row['status']);
                 $category_name = htmlspecialchars($row['complaints_category']);
-                $barangay_name = htmlspecialchars($row['barangay_name']);
+                $barangay_name = htmlspecialchars($row['barangay_saan']);
                 $cp_number = !empty($row['cp_number']) ? htmlspecialchars($row['cp_number']) : '-';
                 $complaints_person = !empty($row['complaints_person']) ? htmlspecialchars($row['complaints_person']) : '-';
                 $gender = htmlspecialchars($row['gender']);

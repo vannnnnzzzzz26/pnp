@@ -34,8 +34,8 @@
         </li>
        
         <li class="nav-item">
-            <a class="nav-link" href="barangay-responder.php">
-                <i class="bi bi-file-earmark-text large-icon"></i><span class="nav-text">Barangay Responder</span>
+            <a class="nav-link" href="manage-complaints.php">
+                <i class="bi bi-file-earmark-text large-icon"></i><span class="nav-text">Manage-complaints</span>
             </a>
         </li>
         <li class="nav-item">

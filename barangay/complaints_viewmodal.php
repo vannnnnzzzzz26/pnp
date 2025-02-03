@@ -89,7 +89,7 @@
 <button type="button" class="btn btn-secondary" id="moveToPnpBtn">Move to PNP</button>
 <button type="button" class="btn btn-secondary" id="settleInBarangayBtn">Settle in Barangay</button>
                 <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#viewComplaintModal" id="setHearingBtn">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#viewsComplaintModal" id="setHearingBtn">
                     Set Hearing
                 </button>
             </div>
