@@ -30,6 +30,8 @@ $stmt = $pdo->prepare("
     LEFT JOIN tbl_hearing_history h ON c.complaints_id = h.complaints_id
     WHERE c.complaint_name = ?
     GROUP BY c.complaints_id
+      ORDER BY c.date_filed DESC
+        
 ");
 
 $stmt->execute([$userFullName]);

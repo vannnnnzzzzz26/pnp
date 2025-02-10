@@ -6,12 +6,13 @@ $username = 'root';
 $password = '';
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Creating a new PDO connection
+    $conn = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);  // Set error mode to exception
 } catch (PDOException $e) {
-    die("Error: " . $e->getMessage());
+    // Catching any connection errors
+    die("Database connection failed: " . $e->getMessage());
 }
-
 
 
 

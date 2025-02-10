@@ -81,6 +81,7 @@ try {
         LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
         LEFT JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
         WHERE c.status = 'inprogress' AND c.barangay_saan = ? AND c.status != 'Rejected'
+         ORDER BY c.date_filed DESC -- Sort by latest date first
         LIMIT ?, ?
     ");
     $stmt->bindValue(1, $barangay_name, PDO::PARAM_STR);
@@ -220,6 +221,11 @@ function handleStatusChange(status) {
     }
 }
 </script>
+
+
+<div style="width: 100%; text-align: center;">
+    <button onclick="window.location.href='add_walkin_page.php';" class="btn btn-primary">Add Walk-In</button>
+</div>
 <tr>
             <th style="text-align: center; vertical-align: middle;">#</th> <!-- Row number centered -->
             <th style="text-align: left; vertical-align: middle;">Complaint Name</th> <!-- Complaint name aligned to the left -->

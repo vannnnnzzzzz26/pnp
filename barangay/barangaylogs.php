@@ -20,7 +20,6 @@ $birth_date = isset($_SESSION['birth_date']) ? $_SESSION['birth_date'] : '';
 $age = isset($_SESSION['age']) ? $_SESSION['age'] : '';
 $gender = isset($_SESSION['gender']) ? $_SESSION['gender'] : '';
 $barangay_name = isset($_SESSION['barangay_name']) ? $_SESSION['barangay_name'] : '';
-
 // Define pagination variables
 $results_per_page = 10; // Number of results per page
 
@@ -118,6 +117,22 @@ include '../includes/edit-profile.php';
             <table class="table table-bordered table-hover">
             <thead>
 
+
+            <form method="GET">
+    <label class="form-label">Filter by Purok:</label>
+    <select id="purokDropdown" name="purok" onchange="this.form.submit()">
+        <option value="">All</option>
+        <?php
+        $stmtPurok = $pdo->query("SELECT DISTINCT purok FROM tbl_users WHERE purok IS NOT NULL ORDER BY purok");
+        while ($rowPurok = $stmtPurok->fetch(PDO::FETCH_ASSOC)) {
+            $selected = isset($_GET['purok']) && $_GET['purok'] == $rowPurok['purok'] ? 'selected' : '';
+            echo "<option value='{$rowPurok['purok']}' $selected>{$rowPurok['purok']}</option>";
+        }
+        ?>
+    </select>
+</form>
+
+
             <form method="POST">
     <label class="form-label">Sort by Status:</label>
 
@@ -180,41 +195,45 @@ try {
     $search_query = isset($_GET['search']) ? '%' . $_GET['search'] . '%' : '%';
 
     // Fetch complaints data with pagination and search filter
+    $purok_filter = isset($_GET['purok']) && !empty($_GET['purok']) ? $_GET['purok'] : '%';
+
     $stmt = $pdo->prepare("
-    SELECT c.*, b.barangay_name, 
-               cc.complaints_category,
-               u.cp_number,          
-               u.gender,            
-               u.place_of_birth,    
-               u.age,               
-                u.nationality,
-                u.educational_background,
-               u.civil_status, e.evidence_path,
-               u.purok
-    FROM tbl_complaints c
-    JOIN tbl_users_barangay b ON c.barangays_id = b.barangays_id
-    JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
-
-              JOIN tbl_users u ON c.user_id = u.user_id  
-
-    LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
-    WHERE (c.status IN ('settled_in_barangay')) AND c.barangay_saan = ?
-    AND (c.complaint_name LIKE ? OR c.complaints LIKE ? OR cc.complaints_category LIKE ? OR u.gender LIKE ? OR u.place_of_birth LIKE ? OR u.educational_background LIKE ? OR u.civil_status LIKE ?)
-    ORDER BY c.date_filed ASC
-    LIMIT ?, ?
+        SELECT c.*, b.barangay_name, 
+                   cc.complaints_category,
+                   u.cp_number,          
+                   u.gender,            
+                   u.place_of_birth,    
+                   u.age,               
+                   u.nationality,
+                   u.educational_background,
+                   u.civil_status, e.evidence_path,
+                   u.purok
+        FROM tbl_complaints c
+        JOIN tbl_users_barangay b ON c.barangays_id = b.barangays_id
+        JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
+        JOIN tbl_users u ON c.user_id = u.user_id  
+        LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
+        WHERE (c.status IN ('settled_in_barangay')) 
+        AND c.barangay_saan = ?
+        AND u.purok LIKE ?
+        AND (c.complaint_name LIKE ? OR c.complaints LIKE ? OR cc.complaints_category LIKE ? OR u.gender LIKE ? OR u.place_of_birth LIKE ? OR u.educational_background LIKE ? OR u.civil_status LIKE ?)
+        ORDER BY c.date_filed DESC
+        LIMIT ?, ?
     ");
-
+    
     $stmt->bindParam(1, $barangay_name, PDO::PARAM_STR);
-    $stmt->bindParam(2, $search_query, PDO::PARAM_STR);
+    $stmt->bindParam(2, $purok_filter, PDO::PARAM_STR);
     $stmt->bindParam(3, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(4, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(5, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(6, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(7, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(8, $search_query, PDO::PARAM_STR);
-    $stmt->bindParam(9, $start_from, PDO::PARAM_INT);
-    $stmt->bindParam(10, $results_per_page, PDO::PARAM_INT);
+    $stmt->bindParam(9, $search_query, PDO::PARAM_STR);
+    $stmt->bindParam(10, $start_from, PDO::PARAM_INT);
+    $stmt->bindParam(11, $results_per_page, PDO::PARAM_INT);
     $stmt->execute();
+    
 
     if ($stmt->rowCount() == 0) {
         echo "<tr><td colspan='4'>No complaints found.</td></tr>";

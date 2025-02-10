@@ -34,12 +34,16 @@ function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_
 
         // Modify the SQL query to filter by barangay if selected
         $sql = "
-            SELECT c.complaints_id, c.complaint_name, c.barangay_saan
-            FROM tbl_complaints c
-     
-            WHERE c.responds = 'pnp'
-            AND (c.complaint_name LIKE ? OR c.barangay_saan LIKE ?)
-        ";
+        SELECT c.complaints_id, c.complaint_name, c.barangay_saan, c.ano, c.date_filed, c.kailan, c.paano, c.bakit, c.complaints, cat.complaints_category,
+        u.purok
+        FROM tbl_complaints c
+         JOIN tbl_users u ON u.user_id = c.user_id
+
+                JOIN tbl_complaintcategories cat ON c.category_id = cat.category_id
+        WHERE c.responds = 'pnp'
+        AND (c.complaint_name LIKE ? OR c.barangay_saan LIKE ?)
+    ";
+    
 
         if (!empty($barangay_filter)) {
             $sql .= " AND c.barangay_saan = ? ";
@@ -71,14 +75,40 @@ function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_
             $row_number = $start_from + 1;
 
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                $complaint_id = htmlspecialchars($row['complaints_id']);
-                $complaint_name = htmlspecialchars($row['complaint_name']);
-                $barangay_name = htmlspecialchars($row['barangay_saan']);
+                $complaint_id = $row['complaints_id'];
+
+                $date_filed = htmlspecialchars($row['date_filed']);
+
+                    $complaint_name = htmlspecialchars($row['complaint_name']);
+                    $complaint_purok = htmlspecialchars($row['purok']);
+
+                    $complaint_barangay = htmlspecialchars($row['barangay_saan']);
+
+                    $complaint_ano = htmlspecialchars($row['ano']);
+                    $complaint_barangay_saan= htmlspecialchars($row['barangay_saan']);
+                    $complaint_kailan = htmlspecialchars($row['kailan']);
+                    $complaint_paano = htmlspecialchars($row['paano']);
+                    $complaint_bakit= htmlspecialchars($row['bakit']);
+                    $complaint_description = htmlspecialchars($row['complaints']);
+                    $complaint_category = htmlspecialchars($row['complaints_category']);
+                    $category = htmlspecialchars($row['complaints_category']);
+    
 
                 echo "<tr>";
                 echo "<td class='align-middle'>{$row_number}</td>";
-                echo "<td class='align-middle'>{$complaint_name}</td>";
-                echo "<td class='align-middle'>{$barangay_name}</td>";
+                echo "<td style='text-align: left; vertical-align: middle;'>{$date_filed }</td>"; 
+
+                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_name}</td>"; // Align name to the left
+                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay }</td>";
+                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_purok }</td>";
+                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_ano }</td>"; 
+                     
+                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay_saan }</td>"; 
+                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_kailan }</td>"; 
+                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_paano }</td>"; 
+                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_bakit }</td>";
+                                echo "<td class='category'>{$category}</td>"; // Display category
+
                 echo "<td '>
                         <button type='button' class='btn btn-sm btn-info' onclick='loadComplaintDetails({$complaint_id})'>View Details</button>
                       </td>";
@@ -185,22 +215,40 @@ include '../includes/pnp-bar.php';
         <!-- Search Form -->
 
 
-        <form method="GET" id="barangayFilterForm">
-    <div class="form-group">
-        <label for="barangay_filter">Filter by Barangay:</label>
-        <select name="barangay_filter" id="barangay_filter" class="form-control" style="width: 200px; display: inline;">
-            <option value="">All Barangays</option>
-            <?php
-            // Fetch distinct barangay names for the dropdown
-            $barangay_stmt = $pdo->query("SELECT DISTINCT barangay_saan FROM tbl_complaints ORDER BY barangay_saan ASC");
-            while ($barangay_row = $barangay_stmt->fetch(PDO::FETCH_ASSOC)) {
-                $barangay_name = htmlspecialchars($barangay_row['barangay_saan']);
-                $selected = (isset($_GET['barangay_filter']) && $_GET['barangay_filter'] === $barangay_name) ? 'selected' : '';
-                echo "<option value=\"$barangay_name\" $selected>$barangay_name</option>";
-            }
-            ?>
-        </select>
+        <form method="POSt" id="barangayFilterForm">
+        <div class="form-group">
+    <label for="barangay_filter">Filter by Barangay:</label>
+    <select name="barangay_filter" id="barangay_filter" class="form-control" style="width: 200px; display: inline;">
+        <option value="">All Barangays</option>
+        <?php
+        // Fetch distinct barangay names where responds = 'pnp'
+        $barangay_stmt = $pdo->prepare("SELECT DISTINCT barangay_saan FROM tbl_complaints WHERE responds = 'pnp' ORDER BY barangay_saan ASC");
+        $barangay_stmt->execute();
+        while ($barangay_row = $barangay_stmt->fetch(PDO::FETCH_ASSOC)) {
+            $barangay_name = htmlspecialchars($barangay_row['barangay_saan']);
+            $selected = (isset($_GET['barangay_filter']) && $_GET['barangay_filter'] === $barangay_name) ? 'selected' : '';
+            echo "<option value=\"$barangay_name\" $selected>$barangay_name</option>";
+        }
+        ?>
+    </select> 
+</div>
+
+
+
+<div class="row mb-3">
+    <!-- Date From -->
+    <div class="col-md-6">
+        <label for="dateFrom" class="form-label">From Date</label>
+        <input type="date" id="dateFrom" class="form-control">
     </div>
+
+    <!-- Date To -->
+    <div class="col-md-6">
+        <label for="dateTo" class="form-label">To Date</label>
+        <input type="date" id="dateTo" class="form-control">
+    </div>
+</div>
+
 </form>
 
 <script>
@@ -214,9 +262,18 @@ include '../includes/pnp-bar.php';
             <table class="table table-striped table-bordered">
                 <thead>
                     <tr>
-                        <th>#</th> <!-- Added column for numbering -->
+                    <th>#</th>
+                        <th>Date Filed</th>
                         <th>Name</th>
-                        <th>Barangay</th>
+                    
+                        <th>Address</th>
+                        <th>purok</th>
+                        <th>ano</th>
+                        <th>saan</th>
+                        <th>kailan</th>
+                        <th>paano</th>
+                        <th>bakit</th>
+                        <th>Category</th> <!-- Add Category Column -->
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -360,6 +417,62 @@ include '../includes/pnp-bar.php';
     <!-- JavaScript to handle modal content dynamically -->
     <script>
 
+
+
+
+document.getElementById('barangayFilter').addEventListener('change', filterTable);
+document.getElementById('categoryFilter').addEventListener('change', filterTable);
+document.getElementById('dateFrom').addEventListener('change', filterTable);
+document.getElementById('dateTo').addEventListener('change', filterTable);
+
+function filterTable() {
+    const barangayFilter = document.getElementById('barangayFilter').value.toLowerCase();
+    const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
+    const dateFrom = document.getElementById('dateFrom').value;
+    const dateTo = document.getElementById('dateTo').value;
+
+    const rows = document.querySelectorAll('#complaintsTable tbody tr');
+    let visibleRowCount = 0; // Track the number of visible rows
+
+    // Remove "No record found" row if it exists before filtering
+    let noRecordRow = document.querySelector('#noRecordRow');
+    if (noRecordRow) {
+        noRecordRow.remove();
+    }
+
+    rows.forEach(row => {
+        const barangay = row.querySelector('.barangay').textContent.toLowerCase();
+        const dateFiled = row.querySelector('td:nth-child(3)').textContent;
+
+        // Check if the row matches the date range, barangay, and category filters
+        let dateMatch = true;
+        if (dateFrom && dateTo) {
+            const filedDate = new Date(dateFiled);
+            const fromDate = new Date(dateFrom);
+            const toDate = new Date(dateTo);
+            dateMatch = filedDate >= fromDate && filedDate <= toDate;
+        }
+
+        // Apply filters
+        if ((barangayFilter === "" || barangay.includes(barangayFilter)) &&
+           
+            dateMatch) {
+            row.style.display = '';
+            visibleRowCount++; // Increment the visible row count
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    // Check if any row is visible, otherwise display the "No record found" message
+    const tableBody = document.querySelector('#complaintsTable tbody');
+    if (visibleRowCount === 0) {
+        noRecordRow = document.createElement('tr');
+        noRecordRow.id = 'noRecordRow';
+        noRecordRow.innerHTML = '<td colspan="6" class="text-center">No record found</td>';
+        tableBody.appendChild(noRecordRow);
+    }
+}
 
 
 document.addEventListener('DOMContentLoaded', function () {

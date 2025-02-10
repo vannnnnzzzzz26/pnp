@@ -68,20 +68,28 @@ if (isset($_GET['id'])) {
                 $nationality = htmlspecialchars($row['nationality']);
 
                 // Construct HTML to display in modal (only once)
-                echo "<p><strong>Name:</strong> {$complaint_name}</p>";
-                echo "<p><strong>Description:</strong> {$description}</p>";
-                echo "<p><strong>Date Filed:</strong> {$date_filed}</p>";
-                echo "<p><strong>Status:</strong> {$status}</p>";
-                echo "<p><strong>Category:</strong> {$category_name}</p>";
-                echo "<p><strong>Barangay:</strong> {$barangay_name}</p>";
-                echo "<p><strong>Contact Number:</strong> {$cp_number}</p>";
-                echo "<p><strong>Complaints Person:</strong> {$complaints_person}</p>";
-                echo "<p><strong>Gender:</strong> {$gender}</p>";
-                echo "<p><strong>Place of Birth:</strong> {$place_of_birth}</p>";
-                echo "<p><strong>Age:</strong> {$age}</p>";
-                echo "<p><strong>Educational Background:</strong> {$educational_background}</p>";
-                echo "<p><strong>Civil Status:</strong> {$civil_status}</p>";
-                echo "<p><strong>Nationality:</strong> {$nationality}</p>";
+                echo "<div style='display: grid; grid-template-columns: 1fr 1fr; gap: 15px;'>";
+echo "<div><strong>Name:</strong><br><textarea class='form-control' rows='1' readonly>{$complaint_name}</textarea></div>";
+echo "<div><strong>Description:</strong><br><textarea class='form-control' rows='4' readonly>{$description}</textarea></div>";
+
+echo "<div><strong>Date Filed:</strong><br><textarea class='form-control' rows='1' readonly>{$date_filed}</textarea></div>";
+echo "<div><strong>Status:</strong><br><textarea class='form-control' rows='1' readonly>{$status}</textarea></div>";
+
+echo "<div><strong>Category:</strong><br><textarea class='form-control' rows='1' readonly>{$category_name}</textarea></div>";
+echo "<div><strong>Barangay:</strong><br><textarea class='form-control' rows='1' readonly>{$barangay_name}</textarea></div>";
+
+echo "<div><strong>Contact Number:</strong><br><textarea class='form-control' rows='1' readonly>{$cp_number}</textarea></div>";
+echo "<div><strong>Complaints Person:</strong><br><textarea class='form-control' rows='1' readonly>{$complaints_person}</textarea></div>";
+
+echo "<div><strong>Gender:</strong><br><textarea class='form-control' rows='1' readonly>{$gender}</textarea></div>";
+echo "<div><strong>Place of Birth:</strong><br><textarea class='form-control' rows='1' readonly>{$place_of_birth}</textarea></div>";
+
+echo "<div><strong>Age:</strong><br><textarea class='form-control' rows='1' readonly>{$age}</textarea></div>";
+echo "<div><strong>Educational Background:</strong><br><textarea class='form-control' rows='1' readonly>{$educational_background}</textarea></div>";
+
+echo "<div><strong>Civil Status:</strong><br><textarea class='form-control' rows='1' readonly>{$civil_status}</textarea></div>";
+echo "<div><strong>Nationality:</strong><br><textarea class='form-control' rows='1' readonly>{$nationality}</textarea></div>";
+echo "</div>"; // Closing the grid container
 
                 // Break after displaying the details once
                 break;

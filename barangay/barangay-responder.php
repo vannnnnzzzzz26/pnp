@@ -48,7 +48,7 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
         LEFT JOIN tbl_hearing_history h ON c.complaints_id = h.complaints_id
         WHERE c.status = 'Approved' AND c.barangay_saan = ?
         GROUP BY c.complaints_id
-        ORDER BY c.date_filed ASC
+        ORDER BY c.date_filed DESC
         LIMIT ?, ?
     ");
     
@@ -342,6 +342,10 @@ function handleStatusChange(status) {
     }
 }
 </script>
+
+<!-- Add Walk-In Button -->
+
+
 
 
                 <tr>

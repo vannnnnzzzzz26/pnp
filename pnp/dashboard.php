@@ -487,7 +487,7 @@ include '../includes/pnp-bar.php';
         <div class="col-md-6 mb-4">
             <div class="card">
                 <div class="card-body">
-                    <h2>Gender</h2>
+                    <h2>Purok</h2>
                     <div class="chart-container d-flex justify-content-center align-items-center" style="height: 300px;">
                         
                         <canvas id="purokChart"></canvas>
@@ -658,14 +658,16 @@ var purokDataLabels = <?php echo json_encode(array_column($purokData, 'purok'));
 var totalPurokCount = purokDataValues.reduce((a, b) => a + b, 0); // Total count of purok data
 
 var purokChart = new Chart(ctxPurok, {
-    type: 'doughnut',
+    type: 'bar',
     data: {
         labels: purokDataLabels.map((label, index) => `${label} (${((purokDataValues[index] / totalPurokCount) * 100).toFixed(1)}%)`), // Add percentages to labels
         datasets: [{
             data: purokDataValues,
             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
             borderColor: '#fff',
-            borderWidth: 1
+            borderWidth: 1,
+            barBorderRadius:10
+
         }]
     },
     options: {

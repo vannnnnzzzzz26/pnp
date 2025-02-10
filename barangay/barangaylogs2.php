@@ -199,7 +199,7 @@ try {
     LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
     WHERE (c.status IN ('rejected')) AND c.barangay_saan = ?
     AND (c.complaint_name LIKE ? OR c.complaints LIKE ? OR cc.complaints_category LIKE ? OR u.gender LIKE ? OR u.place_of_birth LIKE ? OR u.educational_background LIKE ? OR u.civil_status LIKE ?)
-    ORDER BY c.date_filed ASC
+     ORDER BY c.date_filed DESC -- Sort by latest date first
     LIMIT ?, ?
     ");
 

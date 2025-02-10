@@ -13,6 +13,7 @@ $extensionName = $_SESSION['extension_name'] ?? '';
 $email = $_SESSION['email'] ?? '';
 $barangay_name = $_SESSION['barangay_name'] ?? '';
 $pic_data = $_SESSION['pic_data'] ?? '';
+$barangay_saan = $_SESSION['barangay_saan'] ?? '';
 
 ?>
 
@@ -96,34 +97,44 @@ include '../includes/pnp-bar.php';
 <div class="row mb-3">
     <!-- Dropdown Filter for Barangay -->
     <div class="col-md-6">
-        <label for="barangayFilter" class="form-label">Filter by Barangay</label>
-        <select id="barangayFilter" class="form-select">
-            <option value="">All Barangays</option>
-            <!-- Add all barangay options -->
-            <option value="Angoluan">Angoluan</option>
-            <option value="Annafunan">Annafunan</option>
-            <option value="Arabiat">Arabiat</option>
-            <!-- Add all the other barangays here -->
-            <option value="Villa Ysmael (formerly T. Belen)">Villa Ysmael (formerly T. Belen)</option>
-        </select>
-    </div>
+    <label for="barangayFilter" class="form-label">Filter by Barangay</label>
+    <select id="barangayFilter" class="form-select">
+        <option value="">All Barangays</option>
+        <?php
+        // Fetch distinct barangays from tbl_complaints where responds = 'pnp'
+        $stmtBrgy = $pdo->prepare("SELECT DISTINCT barangay_saan FROM tbl_complaints WHERE responds = 'pnp'");
+        $stmtBrgy->execute();
+        while ($barangay = $stmtBrgy->fetch(PDO::FETCH_ASSOC)) {
+            $barangay_saan = htmlspecialchars($barangay['barangay_saan']);
+            echo "<option value=\"{$barangay_saan}\">{$barangay_saan}</option>";
+        }
+        ?>
+    </select>
+</div>
+
 
     <!-- Dropdown Filter for Category -->
     <div class="col-md-6">
-        <label for="categoryFilter" class="form-label">Filter by Category</label>
-        <select id="categoryFilter" class="form-select">
-            <option value="">All Categories</option>
-            <?php
-            // Fetch categories from tbl_complaintcategories
-            $stmtCat = $pdo->prepare("SELECT complaints_category FROM tbl_complaintcategories");
-            $stmtCat->execute();
-            while ($category = $stmtCat->fetch(PDO::FETCH_ASSOC)) {
-                $categoryName = htmlspecialchars($category['complaints_category']);
-                echo "<option value=\"{$categoryName}\">{$categoryName}</option>";
-            }
-            ?>
-        </select>
-    </div>
+    <label for="categoryFilter" class="form-label">Filter by Category</label>
+    <select id="categoryFilter" class="form-select">
+        <option value="">All Categories</option>
+        <?php
+        // Fetch distinct complaint categories where responds = 'pnp'
+        $stmtCat = $pdo->prepare("
+            SELECT DISTINCT cc.complaints_category 
+            FROM tbl_complaints c
+            INNER JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
+            WHERE c.responds = 'pnp'
+        ");
+        $stmtCat->execute();
+        while ($category = $stmtCat->fetch(PDO::FETCH_ASSOC)) {
+            $categoryName = htmlspecialchars($category['complaints_category']);
+            echo "<option value=\"{$categoryName}\">{$categoryName}</option>";
+        }
+        ?>
+    </select>
+</div>
+
 </div>
 
 <!-- Filter Row for Date Range (From and To) -->
@@ -142,14 +153,28 @@ include '../includes/pnp-bar.php';
 </div>
 
 
+
+
+<div style="width: 100%; text-align: center;">
+    <button onclick="window.location.href='add_account.php';" class="btn btn-primary">Add Barangay Acccount</button>
+</div>
+
+
         <div class="table">
             <table class="table table-striped table-bordered table-center" id="complaintsTable">
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Name</th>
                         <th>Date Filed</th>
+                        <th>Name</th>
+                    
                         <th>Address</th>
+                        <th>purok</th>
+                        <th>ano</th>
+                        <th>saan</th>
+                        <th>kailan</th>
+                        <th>paano</th>
+                        <th>bakit</th>
                         <th>Category</th> <!-- Add Category Column -->
                         <th>Action</th>
                     </tr>
@@ -161,12 +186,13 @@ include '../includes/pnp-bar.php';
         try {
             // Prepare the SQL query
             $stmt = $pdo->prepare("
-                SELECT c.complaints_id, c.complaint_name, c.date_filed, c.status, 
-                       c.barangays_id, c.complaints_person, cat.complaints_category
+                SELECT c.*, cat.complaints_category,u.purok
                 FROM tbl_complaints c
+                JOIN tbl_users u ON u.user_id = c.user_id
+
                 JOIN tbl_complaintcategories cat ON c.category_id = cat.category_id
                 WHERE c.responds = 'pnp'
-                ORDER BY c.date_filed ASC
+                ORDER BY c.date_filed DESC
             ");
             $stmt->execute();
     
@@ -177,9 +203,20 @@ include '../includes/pnp-bar.php';
                 // Loop through the results and display each complaint
                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                     $complaint_id = $row['complaints_id'];
-                    $complaint_name = htmlspecialchars($row['complaint_name']);
-                    $category = htmlspecialchars($row['complaints_category']);
                     $date_filed = htmlspecialchars($row['date_filed']);
+
+                    $complaint_name = htmlspecialchars($row['complaint_name']);
+                    $complaint_purok = htmlspecialchars($row['purok']);
+
+                    $complaint_barangay = htmlspecialchars($row['barangay_saan']);
+
+                    $complaint_ano = htmlspecialchars($row['ano']);
+                    $complaint_barangay_saan= htmlspecialchars($row['barangay_saan']);
+                    $complaint_kailan = htmlspecialchars($row['kailan']);
+                    $complaint_paano = htmlspecialchars($row['paano']);
+                    $complaint_bakit= htmlspecialchars($row['bakit']);
+                    $complaint_description = htmlspecialchars($row['complaints']);
+                    $category = htmlspecialchars($row['complaints_category']);
     
                     // Fetch barangay name based on barangays_id
                     if (!empty($row['barangays_id'])) {
@@ -192,12 +229,21 @@ include '../includes/pnp-bar.php';
     
                     $address = $barangay_name;
     
+
+                    
                     // Display the table row
-                    echo "<tr>";
-                    echo "<td>{$row_number}</td>";
-                    echo "<td>{$complaint_name}</td>";
-                    echo "<td>{$date_filed}</td>";
-                    echo "<td class='barangay'>{$address}</td>";
+                    echo "<td style='text-align: center; vertical-align: middle;'>{$row_number}</td>"; // Display row number centered
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$date_filed }</td>"; 
+
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_name}</td>"; // Align name to the left
+                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay }</td>";
+                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_purok }</td>";
+                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_ano }</td>"; 
+                         
+                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay_saan }</td>"; 
+                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_kailan }</td>"; 
+                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_paano }</td>"; 
+                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_bakit }</td>";
                     echo "<td class='category'>{$category}</td>"; // Display category
                     echo "<td><button class='btn btn-info btn-sm' data-bs-toggle='modal' data-bs-target='#viewDetailsModal' data-id='{$complaint_id}'>View Details</button></td>";
                     echo "</tr>";
@@ -501,23 +547,62 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
 
                         modalContent.innerHTML = `
-                            <p><strong>Complaint Name:</strong> ${data.complaint_name}</p>
-                            <p><strong>Description:</strong> ${data.description}</p>
-                            <p><strong>Date Filed:</strong> ${data.date_filed}</p>
-                            <p><strong>Category:</strong> ${data.category}</p>
-                            <p><strong>Barangay:</strong> ${data.barangay_name}</p>
-                            <p><strong>Contact Number:</strong> ${data.cp_number}</p>
-                            <p><strong>Complaints Person:</strong> ${data.complaints_person}</p>
-                            <p><strong>Gender:</strong> ${data.gender}</p>
-                            <p><strong>Place of Birth:</strong> ${data.place_of_birth}</p>
-                            <p><strong>Age:</strong> ${data.age}</p>
-                            <p><strong>Educational Background:</strong> ${data.educational_background}</p>
-                            <p><strong>Civil Status:</strong> ${data.civil_status}</p>
-                             <p><strong>Nationality:</strong> ${data.nationality}</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+        <div><strong>Complainant:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.complaint_name}</textarea>
+        </div>
+        <div><strong>Complaints Person:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.complaints_person}</textarea>
+        </div>
 
-                            ${evidenceHtml}
-                            ${hearingHistoryHtml}
-                        `;
+        <div><strong>Complaint:</strong>
+            <textarea id="description" class="form-control" rows="4" readonly>${data.complaints}</textarea>
+        </div>
+        <div><strong>Gender:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.gender}</textarea>
+        </div>
+
+        <div><strong>Date Filed:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.date_filed}</textarea>
+        </div>
+        <div><strong>Place of Birth:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.place_of_birth}</textarea>
+        </div>
+
+        <div><strong>Category:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.category}</textarea>
+        </div>
+        <div><strong>Age:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.age}</textarea>
+        </div>
+
+        <div><strong>Barangay:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.barangay_name}</textarea>
+        </div>
+        <div><strong>Educational Background:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.educational_background}</textarea>
+        </div>
+
+        <div><strong>Purok:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.purok}</textarea>
+        </div>
+        <div><strong>Civil Status:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.civil_status}</textarea>
+        </div>
+
+        <div><strong>Contact Number:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.cp_number}</textarea>
+        </div>
+        <div><strong>Nationality:</strong>
+            <textarea class="form-control" rows="1" readonly>${data.nationality}</textarea>
+        </div>
+    </div>
+
+    ${evidenceHtml}
+    ${hearingHistoryHtml}
+`;
+
+
 
                         // Add complaint ID to the settle button
                         var settleButton = document.getElementById('settleComplaintBtn');

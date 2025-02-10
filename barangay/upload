@@ -1,0 +1,33 @@
+<?php
+session_start();
+include '../connection/dbconn.php'; // Database connection
+
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["file"])) {
+    $uploadDir = "../uploads/"; // Directory to store uploaded files
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0777, true); // Create directory if it doesn't exist
+    }
+
+    $fileName = basename($_FILES["file"]["name"]);
+    $targetFilePath = $uploadDir . $fileName;
+    $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
+    $allowedTypes = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx']; // Allowed file types
+
+    if (in_array(strtolower($fileType), $allowedTypes)) {
+        if (move_uploaded_file($_FILES["file"]["tmp_name"], $targetFilePath)) {
+            try {
+                $stmt = $pdo->prepare("UPDATE tbl_complaints SET file_path = ? WHERE complaints_id = ?");
+                $stmt->execute([$fileName, $_POST['complaint_id']]);
+
+                echo "File uploaded successfully.";
+            } catch (PDOException $e) {
+                echo "Database error: " . $e->getMessage();
+            }
+        } else {
+            echo "Error uploading file.";
+        }
+    } else {
+        echo "Invalid file type.";
+    }
+}
+?>

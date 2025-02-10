@@ -92,6 +92,13 @@
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#viewsComplaintModal" id="setHearingBtn">
                     Set Hearing
                 </button>
+          
+                <form method="POST" enctype="multipart/form-data" action="upload.php">
+    <input type="hidden" name="complaint_id" value=""> <!-- Complaint ID -->
+    <input type="file" name="cert_file">
+    <input type="submit" name="submit" value="Upload">
+</form>
+
             </div>
         </div>
     </div>

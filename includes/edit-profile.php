@@ -32,7 +32,7 @@
                     <!-- Current Password -->
                     <div class="mb-3">
                         <label for="currentPassword" class="form-label">Current Password</label>
-                        <input type="password" class="form-control" id="currentPassword" name="current_password" required>
+                        <input type="password" class="form-control" id="currentPassword" name="current_password" >
                     </div>
 
                     <!-- New Password -->
