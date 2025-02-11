@@ -19,7 +19,7 @@ $month_from = isset($_GET['month_from']) ? intval($_GET['month_from']) : '';
 $month_to = isset($_GET['month_to']) ? intval($_GET['month_to']) : '';
 
 // Function to fetch dashboard data
-function fetchDashboardData($pdo, $year, $month,  $month_from, $month_to) {
+function fetchDashboardData($pdo, $year, $month, $month_from, $month_to) {
     try {
         $dateConditions = [];
         $paramsTotal = [];
@@ -33,8 +33,8 @@ function fetchDashboardData($pdo, $year, $month,  $month_from, $month_to) {
             $paramsFiledCourt[] = $year;
             $paramsSettledBarangay[] = $year;
             $paramsRejected [] = $year;
-
         }
+        
         if ($month_from && $month_to) {
             $dateConditions[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
             $paramsTotal[] = $month_from;
@@ -86,23 +86,24 @@ function fetchDashboardData($pdo, $year, $month,  $month_from, $month_to) {
         $stmtSettledBarangay->execute($paramsSettledBarangay);
         $settledInBarangay = $stmtSettledBarangay->fetchColumn();
 
-
-
-        $stmtRejected = $pdo->prepare("SELECT COUNT(*) AS rejected FROM tbl_complaints c WHERE c.status = 'Rejected' AND c.responds = 'barangay' $additionalWhere");
+        $stmtRejected = $pdo->prepare("SELECT COUNT(*) AS rejected FROM tbl_complaints c WHERE c.status = 'rejected' $additionalWhere");
         $stmtRejected->execute($paramsRejected);
-        $Rejected = $stmtRejected->fetchColumn();
+        $rejected = $stmtRejected->fetchColumn();
+
+   ;
 
         return [
             'totalComplaints' => $totalComplaints,
             'filedInCourt' => $filedInCourt,
             'settledInBarangay' => $settledInBarangay,
-            'Rejected' => $Rejected
+            'rejected' => $rejected
         ];
     } catch (PDOException $e) {
         echo json_encode(['error' => $e->getMessage()]);
         exit;
     }
 }
+
 
 $data = fetchDashboardData($pdo, $year, $month,$month_from, $month_to,);
 
@@ -389,11 +390,12 @@ include '../includes/pnp-bar.php';
       </div>
    </div>
    <div class="col-md-3">
-      <div class="card">
-         <i class="fas fa-times-circle" style="font-size:50px; color: red;"></i>
-         <h2><?php echo htmlspecialchars($data['Rejected']); ?></h2>
-         <p>Rejected</p>
-      </div>
+   <div class="card">
+    <i class="fas fa-times-circle" style="font-size:50px; color: red;"></i>
+    <h2><?php echo htmlspecialchars($data['rejected']); ?></h2>
+    <p>Rejected</p>
+</div>
+
    </div>
 </div>
 

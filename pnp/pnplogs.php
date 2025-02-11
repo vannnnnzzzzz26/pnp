@@ -12,7 +12,6 @@ $pic_data = $_SESSION['pic_data'] ?? '';
 include '../connection/dbconn.php'; 
 include '../includes/bypass.php';
 
-
 $results_per_page = 10; // Number of complaints per page
 
 // Get the current page number from GET, if available, otherwise set to 1
@@ -23,30 +22,40 @@ $start_from = ($page - 1) * $results_per_page;
 
 // Get the search query from the GET request if available
 $search_query = isset($_GET['search']) ? $_GET['search'] : '';
+$barangay_filter = isset($_GET['barangay']) ? $_GET['barangay'] : ''; // Filter by barangay
+$from_date = isset($_GET['from_date']) ? $_GET['from_date'] : ''; // Filter by from date
+$to_date = isset($_GET['to_date']) ? $_GET['to_date'] : ''; // Filter by to date
+$category_filter = isset($_GET['category']) ? $_GET['category'] : ''; // Filter by category
 
 // Function to display complaints with pagination
-function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_page) {
+function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_page, $barangay_filter, $from_date, $to_date, $category_filter) {
     try {
-        $barangay_filter = isset($_GET['barangay_filter']) ? $_GET['barangay_filter'] : '';
-
         // Prepare the search query for LIKE
         $search_query = '%' . $search_query . '%';
 
-        // Modify the SQL query to filter by barangay if selected
+        // Modify the SQL query to filter by barangay, date, and category if selected
         $sql = "
         SELECT c.complaints_id, c.complaint_name, c.barangay_saan, c.ano, c.date_filed, c.kailan, c.paano, c.bakit, c.complaints, cat.complaints_category,
         u.purok
         FROM tbl_complaints c
-         JOIN tbl_users u ON u.user_id = c.user_id
-
-                JOIN tbl_complaintcategories cat ON c.category_id = cat.category_id
+        JOIN tbl_users u ON u.user_id = c.user_id
+        JOIN tbl_complaintcategories cat ON c.category_id = cat.category_id
         WHERE c.responds = 'pnp'
         AND (c.complaint_name LIKE ? OR c.barangay_saan LIKE ?)
-    ";
-    
+        ";
 
+        // Apply filters if provided
         if (!empty($barangay_filter)) {
             $sql .= " AND c.barangay_saan = ? ";
+        }
+        if (!empty($from_date)) {
+            $sql .= " AND c.date_filed >= ? ";
+        }
+        if (!empty($to_date)) {
+            $sql .= " AND c.date_filed <= ? ";
+        }
+        if (!empty($category_filter)) {
+            $sql .= " AND c.category_id = ? ";
         }
 
         $sql .= " ORDER BY c.date_filed ASC LIMIT ?, ?";
@@ -54,18 +63,27 @@ function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_
         $stmt = $pdo->prepare($sql);
 
         // Bind the parameters
+        $stmt->bindParam(1, $search_query, PDO::PARAM_STR);
+        $stmt->bindParam(2, $search_query, PDO::PARAM_STR);
+
+        $bindIndex = 3; // Starting bind parameter index after search query
+
         if (!empty($barangay_filter)) {
-            $stmt->bindParam(1, $search_query, PDO::PARAM_STR);
-            $stmt->bindParam(2, $search_query, PDO::PARAM_STR);
-            $stmt->bindParam(3, $barangay_filter, PDO::PARAM_STR);
-            $stmt->bindParam(4, $start_from, PDO::PARAM_INT);
-            $stmt->bindParam(5, $results_per_page, PDO::PARAM_INT);
-        } else {
-            $stmt->bindParam(1, $search_query, PDO::PARAM_STR);
-            $stmt->bindParam(2, $search_query, PDO::PARAM_STR);
-            $stmt->bindParam(3, $start_from, PDO::PARAM_INT);
-            $stmt->bindParam(4, $results_per_page, PDO::PARAM_INT);
+            $stmt->bindParam($bindIndex++, $barangay_filter, PDO::PARAM_STR);
         }
+        if (!empty($from_date)) {
+            $stmt->bindParam($bindIndex++, $from_date, PDO::PARAM_STR);
+        }
+        if (!empty($to_date)) {
+            $stmt->bindParam($bindIndex++, $to_date, PDO::PARAM_STR);
+        }
+        if (!empty($category_filter)) {
+            $stmt->bindParam($bindIndex++, $category_filter, PDO::PARAM_INT);
+        }
+
+        // Bind the pagination parameters
+        $stmt->bindParam($bindIndex++, $start_from, PDO::PARAM_INT);
+        $stmt->bindParam($bindIndex++, $results_per_page, PDO::PARAM_INT);
 
         $stmt->execute();
 
@@ -76,38 +94,31 @@ function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_
 
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $complaint_id = $row['complaints_id'];
-
                 $date_filed = htmlspecialchars($row['date_filed']);
-
-                    $complaint_name = htmlspecialchars($row['complaint_name']);
-                    $complaint_purok = htmlspecialchars($row['purok']);
-
-                    $complaint_barangay = htmlspecialchars($row['barangay_saan']);
-
-                    $complaint_ano = htmlspecialchars($row['ano']);
-                    $complaint_barangay_saan= htmlspecialchars($row['barangay_saan']);
-                    $complaint_kailan = htmlspecialchars($row['kailan']);
-                    $complaint_paano = htmlspecialchars($row['paano']);
-                    $complaint_bakit= htmlspecialchars($row['bakit']);
-                    $complaint_description = htmlspecialchars($row['complaints']);
-                    $complaint_category = htmlspecialchars($row['complaints_category']);
-                    $category = htmlspecialchars($row['complaints_category']);
-    
+                $complaint_name = htmlspecialchars($row['complaint_name']);
+                $complaint_purok = htmlspecialchars($row['purok']);
+                $complaint_barangay = htmlspecialchars($row['barangay_saan']);
+                $complaint_ano = htmlspecialchars($row['ano']);
+                $complaint_barangay_saan = htmlspecialchars($row['barangay_saan']);
+                $complaint_kailan = htmlspecialchars($row['kailan']);
+                $complaint_paano = htmlspecialchars($row['paano']);
+                $complaint_bakit = htmlspecialchars($row['bakit']);
+                $complaint_description = htmlspecialchars($row['complaints']);
+                $complaint_category = htmlspecialchars($row['complaints_category']);
+                $category = htmlspecialchars($row['complaints_category']);
 
                 echo "<tr>";
                 echo "<td class='align-middle'>{$row_number}</td>";
                 echo "<td style='text-align: left; vertical-align: middle;'>{$date_filed }</td>"; 
-
-                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_name}</td>"; // Align name to the left
-                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay }</td>";
-                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_purok }</td>";
-                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_ano }</td>"; 
-                     
-                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay_saan }</td>"; 
-                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_kailan }</td>"; 
-                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_paano }</td>"; 
-                                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_bakit }</td>";
-                                echo "<td class='category'>{$category}</td>"; // Display category
+                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_name}</td>";
+                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay }</td>";
+                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_purok }</td>";
+                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_ano }</td>"; 
+                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay_saan }</td>"; 
+                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_kailan }</td>"; 
+                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_paano }</td>"; 
+                echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_bakit }</td>";
+                echo "<td class='category'>{$category}</td>";
 
                 echo "<td '>
                         <button type='button' class='btn btn-sm btn-info' onclick='loadComplaintDetails({$complaint_id})'>View Details</button>
@@ -138,6 +149,7 @@ $total_complaints = $row['total'];
 // Calculate the total number of pages
 $total_pages = ceil($total_complaints / $results_per_page);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -212,51 +224,45 @@ include '../includes/pnp-bar.php';
   
         <h2 class="mt-3 mb-4">Barangay Complaints History</h2>
 
-        <!-- Search Form -->
-
-
-        <form method="POSt" id="barangayFilterForm">
-        <div class="form-group">
-    <label for="barangay_filter">Filter by Barangay:</label>
-    <select name="barangay_filter" id="barangay_filter" class="form-control" style="width: 200px; display: inline;">
-        <option value="">All Barangays</option>
+        <form method="GET">
+    <label class="form-label">Filter by Barangay:</label>
+    <select id="barangayDropdown" name="barangay" onchange="this.form.submit()">
+        <option value="">All</option>
         <?php
-        // Fetch distinct barangay names where responds = 'pnp'
-        $barangay_stmt = $pdo->prepare("SELECT DISTINCT barangay_saan FROM tbl_complaints WHERE responds = 'pnp' ORDER BY barangay_saan ASC");
-        $barangay_stmt->execute();
-        while ($barangay_row = $barangay_stmt->fetch(PDO::FETCH_ASSOC)) {
-            $barangay_name = htmlspecialchars($barangay_row['barangay_saan']);
-            $selected = (isset($_GET['barangay_filter']) && $_GET['barangay_filter'] === $barangay_name) ? 'selected' : '';
-            echo "<option value=\"$barangay_name\" $selected>$barangay_name</option>";
+        $stmtBarangay = $pdo->query("SELECT DISTINCT barangay_saan FROM tbl_complaints WHERE barangay_saan IS NOT NULL ORDER BY barangay_saan");
+        while ($rowBarangay = $stmtBarangay->fetch(PDO::FETCH_ASSOC)) {
+            $selected = isset($_GET['barangay']) && $_GET['barangay'] == $rowBarangay['barangay_saan'] ? 'selected' : '';
+            echo "<option value='{$rowBarangay['barangay_saan']}' $selected>{$rowBarangay['barangay_saan']}</option>";
         }
         ?>
-    </select> 
-</div>
+    </select>
 
+    <br><br>
 
-
-<div class="row mb-3">
-    <!-- Date From -->
-    <div class="col-md-6">
-        <label for="dateFrom" class="form-label">From Date</label>
-        <input type="date" id="dateFrom" class="form-control">
-    </div>
-
-    <!-- Date To -->
-    <div class="col-md-6">
-        <label for="dateTo" class="form-label">To Date</label>
-        <input type="date" id="dateTo" class="form-control">
-    </div>
-</div>
-
+    <label class="form-label">Filter by Date Range:</label><br>
+    <label for="from_date">From: </label>
+    <input type="date" id="from_date" name="from_date" value="<?php echo isset($_GET['from_date']) ? $_GET['from_date'] : ''; ?>" onchange="this.form.submit()">
+    <label for="to_date">To: </label>
+    <input type="date" id="to_date" name="to_date" value="<?php echo isset($_GET['to_date']) ? $_GET['to_date'] : ''; ?>" onchange="this.form.submit()">
+    
+    <br><br>
+    
+    <label class="form-label">Filter by Category:</label>
+    <select id="categoryDropdown" name="category" onchange="this.form.submit()">
+        <option value="">All</option>
+        <?php
+        // Fetch categories from tbl_complaintcategories
+        $stmtCategory = $pdo->query("SELECT category_id, complaints_category FROM tbl_complaintcategories ORDER BY complaints_category");
+        while ($rowCategory = $stmtCategory->fetch(PDO::FETCH_ASSOC)) {
+            $selected = isset($_GET['category']) && $_GET['category'] == $rowCategory['category_id'] ? 'selected' : '';
+            echo "<option value='{$rowCategory['category_id']}' $selected>{$rowCategory['complaints_category']}</option>";
+        }
+        ?>
+    </select>
 </form>
 
-<script>
-    // Automatically submit the form when the barangay dropdown value changes
-    document.getElementById('barangay_filter').addEventListener('change', function () {
-        document.getElementById('barangayFilterForm').submit();
-    });
-</script>
+    
+
 
         <div class="table">
             <table class="table table-striped table-bordered">
@@ -279,7 +285,7 @@ include '../includes/pnp-bar.php';
                 </thead>
                 <tbody>
                     <?php
-                        displayComplaintDetails($pdo, $search_query, $start_from, $results_per_page);
+                        displayComplaintDetails($pdo, $search_query, $start_from, $results_per_page, $barangay_filter, $from_date, $to_date, $category_filter);
                     ?>
                 </tbody>
             </table>

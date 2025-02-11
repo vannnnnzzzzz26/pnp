@@ -95,62 +95,44 @@ include '../includes/pnp-bar.php';
 <div class="row mb-3">
    <!-- Filter Row for Barangay, Category, and Date Range -->
 <div class="row mb-3">
-    <!-- Dropdown Filter for Barangay -->
-    <div class="col-md-6">
-    <label for="barangayFilter" class="form-label">Filter by Barangay</label>
-    <select id="barangayFilter" class="form-select">
-        <option value="">All Barangays</option>
+<form method="GET">
+    <label class="form-label">Filter by Barangay:</label>
+    <select id="barangayDropdown" name="barangay" onchange="this.form.submit()">
+        <option value="">All</option>
         <?php
-        // Fetch distinct barangays from tbl_complaints where responds = 'pnp'
-        $stmtBrgy = $pdo->prepare("SELECT DISTINCT barangay_saan FROM tbl_complaints WHERE responds = 'pnp'");
-        $stmtBrgy->execute();
-        while ($barangay = $stmtBrgy->fetch(PDO::FETCH_ASSOC)) {
-            $barangay_saan = htmlspecialchars($barangay['barangay_saan']);
-            echo "<option value=\"{$barangay_saan}\">{$barangay_saan}</option>";
+        // Fetch unique barangay names from tbl_complaints
+        $stmtBarangay = $pdo->query("SELECT DISTINCT barangay_saan FROM tbl_complaints WHERE barangay_saan IS NOT NULL ORDER BY barangay_saan");
+        while ($rowBarangay = $stmtBarangay->fetch(PDO::FETCH_ASSOC)) {
+            $selected = isset($_GET['barangay']) && $_GET['barangay'] == $rowBarangay['barangay_saan'] ? 'selected' : '';
+            echo "<option value='{$rowBarangay['barangay_saan']}' $selected>{$rowBarangay['barangay_saan']}</option>";
         }
         ?>
     </select>
-</div>
 
+    <br><br>
 
-    <!-- Dropdown Filter for Category -->
-    <div class="col-md-6">
-    <label for="categoryFilter" class="form-label">Filter by Category</label>
-    <select id="categoryFilter" class="form-select">
-        <option value="">All Categories</option>
+    <label class="form-label">Filter by Date Range:</label><br>
+    <label for="from_date">From: </label>
+    <input type="date" id="from_date" name="from_date" value="<?php echo isset($_GET['from_date']) ? $_GET['from_date'] : ''; ?>" onchange="this.form.submit()">
+    <label for="to_date">To: </label>
+    <input type="date" id="to_date" name="to_date" value="<?php echo isset($_GET['to_date']) ? $_GET['to_date'] : ''; ?>" onchange="this.form.submit()">
+    
+    <br><br>
+    
+    <label class="form-label">Filter by Category:</label>
+    <select id="categoryDropdown" name="category" onchange="this.form.submit()">
+        <option value="">All</option>
         <?php
-        // Fetch distinct complaint categories where responds = 'pnp'
-        $stmtCat = $pdo->prepare("
-            SELECT DISTINCT cc.complaints_category 
-            FROM tbl_complaints c
-            INNER JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
-            WHERE c.responds = 'pnp'
-        ");
-        $stmtCat->execute();
-        while ($category = $stmtCat->fetch(PDO::FETCH_ASSOC)) {
-            $categoryName = htmlspecialchars($category['complaints_category']);
-            echo "<option value=\"{$categoryName}\">{$categoryName}</option>";
+        // Fetch categories from tbl_complaintcategories
+        $stmtCategory = $pdo->query("SELECT category_id, complaints_category FROM tbl_complaintcategories ORDER BY complaints_category");
+        while ($rowCategory = $stmtCategory->fetch(PDO::FETCH_ASSOC)) {
+            $selected = isset($_GET['category']) && $_GET['category'] == $rowCategory['category_id'] ? 'selected' : '';
+            echo "<option value='{$rowCategory['category_id']}' $selected>{$rowCategory['complaints_category']}</option>";
         }
         ?>
     </select>
-</div>
+</form>
 
-</div>
-
-<!-- Filter Row for Date Range (From and To) -->
-<div class="row mb-3">
-    <!-- Date From -->
-    <div class="col-md-6">
-        <label for="dateFrom" class="form-label">From Date</label>
-        <input type="date" id="dateFrom" class="form-control">
-    </div>
-
-    <!-- Date To -->
-    <div class="col-md-6">
-        <label for="dateTo" class="form-label">To Date</label>
-        <input type="date" id="dateTo" class="form-control">
-    </div>
-</div>
 
 
 
@@ -184,16 +166,57 @@ include '../includes/pnp-bar.php';
     // Function to display PNP complaints
     function displayPNPComplaints($pdo) {
         try {
-            // Prepare the SQL query
-            $stmt = $pdo->prepare("
-                SELECT c.*, cat.complaints_category,u.purok
+            $selectedBarangay = isset($_GET['barangay']) ? $_GET['barangay'] : '';
+            $fromDate = isset($_GET['from_date']) ? $_GET['from_date'] : '';
+            $toDate = isset($_GET['to_date']) ? $_GET['to_date'] : '';
+            $selectedCategory = isset($_GET['category']) ? $_GET['category'] : '';
+            
+            $query = "
+                SELECT c.*, cat.complaints_category, u.purok
                 FROM tbl_complaints c
                 JOIN tbl_users u ON u.user_id = c.user_id
-
                 JOIN tbl_complaintcategories cat ON c.category_id = cat.category_id
-                WHERE c.responds = 'pnp'
-                ORDER BY c.date_filed DESC
-            ");
+                WHERE c.responds = 'pnp' AND c.status != 'Filed in the court'
+            ";
+            
+            // Apply filter by barangay if selected
+            if (!empty($selectedBarangay)) {
+                $query .= " AND c.barangay_saan = :selectedBarangay";
+            }
+            
+            // Apply filter by date range if provided
+            if (!empty($fromDate)) {
+                $query .= " AND c.date_filed >= :fromDate";
+            }
+            if (!empty($toDate)) {
+                $query .= " AND c.date_filed <= :toDate";
+            }
+            
+            // Apply filter by category if selected
+            if (!empty($selectedCategory)) {
+                $query .= " AND c.category_id = :selectedCategory";
+            }
+            
+            $query .= " ORDER BY c.date_filed DESC";
+            
+            // Prepare the query
+            $stmt = $pdo->prepare($query);
+            
+            // Bind the parameters if filters are applied
+            if (!empty($selectedBarangay)) {
+                $stmt->bindParam(':selectedBarangay', $selectedBarangay, PDO::PARAM_STR);
+            }
+            if (!empty($fromDate)) {
+                $stmt->bindParam(':fromDate', $fromDate, PDO::PARAM_STR);
+            }
+            if (!empty($toDate)) {
+                $stmt->bindParam(':toDate', $toDate, PDO::PARAM_STR);
+            }
+            if (!empty($selectedCategory)) {
+                $stmt->bindParam(':selectedCategory', $selectedCategory, PDO::PARAM_INT);
+            }
+            
+            // Execute the query
             $stmt->execute();
     
             // Check if there are any rows returned
@@ -349,153 +372,18 @@ include '../includes/pnp-bar.php';
     <script src="../scripts/script.js"></script>
     <script>
 
+document.getElementById("barangayFilter").addEventListener("change", function () {
+    var selectedBarangay = this.value;
 
-document.getElementById('barangayFilter').addEventListener('change', filterTable);
-document.getElementById('categoryFilter').addEventListener('change', filterTable);
-document.getElementById('dateFrom').addEventListener('change', filterTable);
-document.getElementById('dateTo').addEventListener('change', filterTable);
-
-function filterTable() {
-    const barangayFilter = document.getElementById('barangayFilter').value.toLowerCase();
-    const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
-    const dateFrom = document.getElementById('dateFrom').value;
-    const dateTo = document.getElementById('dateTo').value;
-
-    const rows = document.querySelectorAll('#complaintsTable tbody tr');
-    let visibleRowCount = 0; // Track the number of visible rows
-
-    // Remove "No record found" row if it exists before filtering
-    let noRecordRow = document.querySelector('#noRecordRow');
-    if (noRecordRow) {
-        noRecordRow.remove();
+    // Reload the page with the selected barangay in the URL
+    if (selectedBarangay === "") {
+        window.location.href = window.location.pathname;
+    } else {
+        window.location.href = window.location.pathname + "?barangay=" + encodeURIComponent(selectedBarangay);
     }
-
-    rows.forEach(row => {
-        const barangay = row.querySelector('.barangay').textContent.toLowerCase();
-        const category = row.querySelector('.category').textContent.toLowerCase();
-        const dateFiled = row.querySelector('td:nth-child(3)').textContent;
-
-        // Check if the row matches the date range, barangay, and category filters
-        let dateMatch = true;
-        if (dateFrom && dateTo) {
-            const filedDate = new Date(dateFiled);
-            const fromDate = new Date(dateFrom);
-            const toDate = new Date(dateTo);
-            dateMatch = filedDate >= fromDate && filedDate <= toDate;
-        }
-
-        // Apply filters
-        if ((barangayFilter === "" || barangay.includes(barangayFilter)) &&
-            (categoryFilter === "" || category.includes(categoryFilter)) &&
-            dateMatch) {
-            row.style.display = '';
-            visibleRowCount++; // Increment the visible row count
-        } else {
-            row.style.display = 'none';
-        }
-    });
-
-    // Check if any row is visible, otherwise display the "No record found" message
-    const tableBody = document.querySelector('#complaintsTable tbody');
-    if (visibleRowCount === 0) {
-        noRecordRow = document.createElement('tr');
-        noRecordRow.id = 'noRecordRow';
-        noRecordRow.innerHTML = '<td colspan="6" class="text-center">No record found</td>';
-        tableBody.appendChild(noRecordRow);
-    }
-}
-
-
-document.addEventListener("DOMContentLoaded", function () {
-    const notificationButton = document.getElementById('notificationButton');
-    const notificationCountBadge = document.getElementById("notificationCount");
-
-    function fetchNotifications() {
-        return fetch('notifications.php', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const notificationCount = data.notifications.length;
-                updateNotificationBadge(notificationCount);
-                updatePopoverContent(data.notifications);
-            } else {
-                console.error("Failed to fetch notifications");
-            }
-        })
-        .catch(error => {
-            console.error("Error fetching notifications:", error);
-        });
-    }
-
-    function updateNotificationBadge(count) {
-        notificationCountBadge.textContent = count > 0 ? count : "0";
-        notificationCountBadge.classList.toggle("d-none", count === 0);
-    }
-
-    function updatePopoverContent(notifications) {
-        let notificationListHtml = notifications.length > 0 ?
-            notifications.map(notification => `
-                <div class="dropdown-item" data-id="${notification.complaints_id}">
-                    Complaint: ${notification.complaint_name}<br>
-                    Barangay: ${notification.barangay_name}<br>
-                    Status: ${notification.status}
-                    <hr>
-                </div>
-            `).join('') :
-            '<div class="dropdown-item text-center">No new notifications</div>';
-
-        const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
-        if (popoverInstance) {
-            popoverInstance.setContent({ '.popover-body': notificationListHtml });
-        } else {
-            new bootstrap.Popover(notificationButton, {
-                html: true,
-                content: function () {
-                    return `<div class="popover-content">${notificationListHtml}</div>`;
-                },
-                container: 'body'
-            });
-        }
-
-        // Add click event listener to mark as read
-        document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
-            item.addEventListener('click', function () {
-                const notificationId = this.getAttribute('data-id');
-                markNotificationAsRead(notificationId);
-            });
-        });
-    }
-
-    function markNotificationAsRead(notificationId) {
-  
-        fetch('notifications.php?action=update', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notificationId, userId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                fetchNotifications(); // Refresh notifications
-            } else {
-                console.error("Failed to mark notification as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-
-    // Fetch notifications when the page loads
-    fetchNotifications();
 });
+
+
 
 
 
@@ -689,136 +577,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    document.addEventListener("DOMContentLoaded", function () {
-    const notificationButton = document.getElementById('notificationButton');
-    const modalBody = document.getElementById('notificationModalBody');
-
-    function fetchNotifications() {
-        return fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json().catch(() => ({ success: false }))) // Handle JSON parsing errors
-        .then(data => {
-            if (data.success) {
-                const notificationCount = data.notifications.length;
-                const notificationCountBadge = document.getElementById("notificationCount");
-
-                if (notificationCount > 0) {
-                    notificationCountBadge.textContent = notificationCount;
-                    notificationCountBadge.classList.remove("d-none");
-                } else {
-                    notificationCountBadge.textContent = "0";
-                    notificationCountBadge.classList.add("d-none");
-                }
-
-                let notificationListHtml = '';
-                if (notificationCount > 0) {
-                    data.notifications.forEach(notification => {
-                        notificationListHtml += `
-                            <div class="dropdown-item" 
-                                 data-id="${notification.complaints_id}" 
-                                 data-status="${notification.status}" 
-                                 data-complaint-name="${notification.complaint_name}" 
-                                 data-barangay-name="${notification.barangay_name}">
-                                Complaint: ${notification.complaint_name}<br>
-                                Barangay: ${notification.barangay_name}<br>
-                                Status: ${notification.status}
-                                <hr>
-                            </div>
-
-
-                            
-                        `;
-                    });
-                } else {
-                    notificationListHtml = '<div class="dropdown-item text-center">No new notifications</div>';
-                }
-
-                const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
-                if (popoverInstance) {
-                    popoverInstance.setContent({
-                        '.popover-body': notificationListHtml
-                    });
-                } else {
-                    new bootstrap.Popover(notificationButton, {
-                        html: true,
-                        content: function () {
-                            return `<div class="popover-content">${notificationListHtml}</div>`;
-                        },
-                        container: 'body'
-                    });
-                }
-
-                document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
-                    item.addEventListener('click', function () {
-                        const notificationId = this.getAttribute('data-id');
-                        markNotificationAsRead(notificationId);
-                    });
-                });
-            } else {
-                console.error("Failed to fetch notifications");
-            }
-        })
-        .catch(error => {
-            console.error("Error fetching notifications:", error);
-        });
-    }
-
-    function markNotificationAsRead(notificationId) {
-        fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notificationId: notificationId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Notification marked as read');
-                fetchNotifications(); // Refresh notifications
-            } else {
-                console.error("Failed to mark notification as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-
-    fetchNotifications();
-
-    notificationButton.addEventListener('shown.bs.popover', function () {
-        markNotificationsAsRead();
-    });
-
-    function markNotificationsAsRead() {
-        fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ markAsRead: true })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const badge = document.querySelector(".badge.bg-danger");
-                if (badge) {
-                    badge.classList.add("d-none");
-                }
-            } else {
-                console.error("Failed to mark notifications as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-});
+  
+    
     function confirmLogout() {
         Swal.fire({
             title: "Are you sure?",
@@ -836,6 +596,110 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
      
+
+
+
+
+
+
+
+
+
+
+
+
+
+    document.addEventListener("DOMContentLoaded", function () {
+    const notificationButton = document.getElementById('notificationButton');
+    const notificationCountBadge = document.getElementById("notificationCount");
+
+    function fetchNotifications() {
+        return fetch('notifications.php', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const notificationCount = data.notifications.length;
+                updateNotificationBadge(notificationCount);
+                updatePopoverContent(data.notifications);
+            } else {
+                console.error("Failed to fetch notifications");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching notifications:", error);
+        });
+    }
+
+    function updateNotificationBadge(count) {
+        notificationCountBadge.textContent = count > 0 ? count : "0";
+        notificationCountBadge.classList.toggle("d-none", count === 0);
+    }
+
+    function updatePopoverContent(notifications) {
+        let notificationListHtml = notifications.length > 0 ?
+            notifications.map(notification => `
+                <div class="dropdown-item" data-id="${notification.complaints_id}">
+                    Complaint: ${notification.complaint_name}<br>
+                    Barangay: ${notification.barangay_name}<br>
+                    Status: ${notification.status}
+                    <hr>
+                </div>
+            `).join('') :
+            '<div class="dropdown-item text-center">No new notifications</div>';
+
+        const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
+        if (popoverInstance) {
+            popoverInstance.setContent({ '.popover-body': notificationListHtml });
+        } else {
+            new bootstrap.Popover(notificationButton, {
+                html: true,
+                content: function () {
+                    return `<div class="popover-content">${notificationListHtml}</div>`;
+                },
+                container: 'body'
+            });
+        }
+
+        // Add click event listener to mark as read
+        document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
+            item.addEventListener('click', function () {
+                const notificationId = this.getAttribute('data-id');
+                markNotificationAsRead(notificationId);
+            });
+        });
+    }
+
+    function markNotificationAsRead(notificationId) {
+  
+        fetch('notifications.php?action=update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notificationId, userId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                fetchNotifications(); // Refresh notifications
+            } else {
+                console.error("Failed to mark notification as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+
+    // Fetch notifications when the page loads
+    fetchNotifications();
+});
+
     </script>
 </body>
 </html>

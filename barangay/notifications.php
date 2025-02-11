@@ -17,6 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             FROM tbl_complaints c
             LEFT JOIN tbl_users_barangay u ON c.barangays_id = u.barangays_id
             WHERE u.barangay_name = ? AND c.status IN ('Inprogress')
+                    ORDER BY c.date_filed DESC
+
         ");
         $stmt->execute([$barangay_name]);
         $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
