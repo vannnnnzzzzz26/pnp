@@ -230,7 +230,7 @@ function handleStatusChange(status) {
             <th style="text-align: center; vertical-align: middle;">#</th> <!-- Row number centered -->
             <th style="text-align: left; vertical-align: middle;">Complaint Name</th> <!-- Complaint name aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Date Filed</th> <!-- Date filed aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Barangay</th> <!-- Barangay aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">Address</th> <!-- Barangay aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Purok</th> <!-- Purok aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Ano</th> <!-- Ano aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Saan</th> <!-- Saan aligned to the left -->
@@ -253,7 +253,8 @@ function handleStatusChange(status) {
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['purok']); ?></td> <!-- Left-align purok -->
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['ano']); ?></td> <!-- Left-align ano -->
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['barangay_saan']); ?></td> <!-- Left-align saan -->
-                <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['kailan']); ?></td> <!-- Left-align kailan -->
+                <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['kailan_date']) . ' ' . htmlspecialchars($complaint['kailan_time']); ?></td>
+
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['paano']); ?></td> <!-- Left-align paano -->
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['bakit']); ?></td> <!-- Left-align bakit -->
                 <td style="text-align: center; vertical-align: middle;">

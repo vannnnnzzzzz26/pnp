@@ -30,12 +30,13 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
         SELECT c.*, 
                b.barangay_name, 
                cc.complaints_category,
+               cc.cert_path,
                u.cp_number,          
                u.gender,            
                u.place_of_birth,    
                u.age,               
-                u.nationality,
-                u.educational_background,
+               u.nationality,
+               u.educational_background,
                u.civil_status,
                u.purok,
                GROUP_CONCAT(DISTINCT e.evidence_path SEPARATOR ',') AS evidence_paths,
@@ -51,6 +52,7 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
         ORDER BY c.date_filed DESC
         LIMIT ?, ?
     ");
+    
     
 
         $stmt->bindParam(1, $barangay_name, PDO::PARAM_STR);
@@ -69,7 +71,8 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
                 $complaint_name = htmlspecialchars($row['complaint_name']);
                 $complaint_ano = htmlspecialchars($row['ano']);
                 $complaint_barangay_saan= htmlspecialchars($row['barangay_saan']);
-                $complaint_kailan = htmlspecialchars($row['kailan']);
+// Combine kailan_date and kailan_time fields
+$complaint_kailan = htmlspecialchars($row['kailan_date']) . ' ' . htmlspecialchars($row['kailan_time']);
                 $complaint_paano = htmlspecialchars($row['paano']);
                 $complaint_bakit= htmlspecialchars($row['bakit']);
                 $complaint_description = htmlspecialchars($row['complaints']);
@@ -89,6 +92,8 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
                 $complaint_date_filed = htmlspecialchars($row['date_filed']);
                 $complaint_status = htmlspecialchars($row['status']);
                 $complaint_hearing_status = htmlspecialchars($row['hearing_history']);
+                $complaint_cert_path = htmlspecialchars($row['cert_path']);
+
 
                 echo "<tr>";
                 echo "<td style='text-align: center; vertical-align: middle;'>{$rowNumber}</td>"; // Display row number centered
@@ -132,6 +137,8 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
                                 data-evidence_paths='{$complaint_evidence}' 
                                 data-date_filed='{$complaint_date_filed}' 
                                 data-status='{$complaint_status}' 
+                              data-cert_path='{$complaint_cert_path}' 
+
                                 data-hearing_history='{$complaint_hearing_status}' 
                                 data-bs-toggle='modal' data-bs-target='#complaintModal'>
                             View Details
@@ -352,7 +359,7 @@ function handleStatusChange(status) {
                 <th style="text-align: center; vertical-align: middle;">#</th> <!-- Row number centered -->
             <th style="text-align: left; vertical-align: middle;">Complaint Name</th> <!-- Complaint name aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Date Filed</th> <!-- Date filed aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Barangay</th> <!-- Barangay aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;"><Address></Address></th> <!-- Barangay aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Purok</th> <!-- Purok aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Ano</th> <!-- Ano aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Saan</th> <!-- Saan aligned to the left -->
@@ -541,7 +548,7 @@ document.getElementById('modal-civil_status').value = this.dataset.civil_status;
 document.getElementById('modal-date_filed').value = this.dataset.date_filed;
 document.getElementById('modal-status').value = this.dataset.status;
 document.getElementById('modal-nationality').value = this.dataset.nationality;
-
+document.getElementById('modal-cert_path').value = this.dataset.cert_path;
          
 
             // Handle hearing history display

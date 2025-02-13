@@ -35,7 +35,7 @@ function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_
 
         // Modify the SQL query to filter by barangay, date, and category if selected
         $sql = "
-        SELECT c.complaints_id, c.complaint_name, c.barangay_saan, c.ano, c.date_filed, c.kailan, c.paano, c.bakit, c.complaints, cat.complaints_category,
+        SELECT c.complaints_id, c.complaint_name, c.barangay_saan, c.ano, c.date_filed, c.kailan_date,c.kailan_time, c.paano, c.bakit, c.complaints, cat.complaints_category,
         u.purok
         FROM tbl_complaints c
         JOIN tbl_users u ON u.user_id = c.user_id
@@ -100,7 +100,7 @@ function displayComplaintDetails($pdo, $search_query, $start_from, $results_per_
                 $complaint_barangay = htmlspecialchars($row['barangay_saan']);
                 $complaint_ano = htmlspecialchars($row['ano']);
                 $complaint_barangay_saan = htmlspecialchars($row['barangay_saan']);
-                $complaint_kailan = htmlspecialchars($row['kailan']);
+                $complaint_kailan = htmlspecialchars($row['kailan_date']) . ' ' . htmlspecialchars($row['kailan_time']);
                 $complaint_paano = htmlspecialchars($row['paano']);
                 $complaint_bakit = htmlspecialchars($row['bakit']);
                 $complaint_description = htmlspecialchars($row['complaints']);

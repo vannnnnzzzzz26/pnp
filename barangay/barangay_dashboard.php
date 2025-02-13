@@ -3,7 +3,6 @@ session_start();
 include '../connection/dbconn.php';
 include '../includes/bypass.php';
 
-
 // Fetch user information from session
 $firstName = $_SESSION['first_name'] ?? '';
 $middleName = $_SESSION['middle_name'] ?? '';
@@ -15,38 +14,26 @@ $barangay_saan = $_SESSION['barangay_saan'] ?? '';
 $pic_data = $_SESSION['pic_data'] ?? '';
 
 // Get filters from GET request
-$year = isset($_GET['year']) ? intval($_GET['year']) : '';
-$month = isset($_GET['month']) ? intval($_GET['month']) : '';
-$month_from = isset($_GET['month_from']) ? intval($_GET['month_from']) : '';
-$month_to = isset($_GET['month_to']) ? intval($_GET['month_to']) : '';
+$from_date = isset($_GET['from_date']) ? $_GET['from_date'] : '';
+$to_date = isset($_GET['to_date']) ? $_GET['to_date'] : '';
 
 // Function to fetch dashboard data
-function fetchDashboardData($pdo, $year, $month, $month_from, $month_to, $barangay_name) {
+function fetchDashboardData($pdo, $from_date, $to_date, $barangay_name) {
     try {
         $whereClauses = ["c.barangay_saan = ?"];
         $params = [$barangay_name];
 
-
-        if ($year) {
-            $whereClauses[] = "YEAR(c.date_filed) = ?";
-            $params[] = $year;
-        }
-
-        if ($month) {
-            $whereClauses[] = "MONTH(c.date_filed) = ?";
-            $params[] = $month;
-        }
-
-        if ($month_from && $month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
-            $params[] = $month_from;
-            $params[] = $month_to;
-        } elseif ($month_from) {
-            $whereClauses[] = "MONTH(c.date_filed) >= ?";
-            $params[] = $month_from;
-        } elseif ($month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) <= ?";
-            $params[] = $month_to;
+        // Add date range filter
+        if ($from_date && $to_date) {
+            $whereClauses[] = "c.date_filed BETWEEN ? AND ?";
+            $params[] = $from_date;
+            $params[] = $to_date;
+        } elseif ($from_date) {
+            $whereClauses[] = "c.date_filed >= ?";
+            $params[] = $from_date;
+        } elseif ($to_date) {
+            $whereClauses[] = "c.date_filed <= ?";
+            $params[] = $to_date;
         }
 
         $whereSql = $whereClauses ? ' WHERE ' . implode(' AND ', $whereClauses) : '';
@@ -55,10 +42,9 @@ function fetchDashboardData($pdo, $year, $month, $month_from, $month_to, $barang
             SELECT 
                 SUM(CASE WHEN c.status = 'Rejected' THEN 1 ELSE 0 END) AS rejected,
                 SUM(CASE WHEN c.status = 'settled_in_barangay' THEN 1 ELSE 0 END) AS settled_in_barangay,
-                   SUM(CASE WHEN c.status = 'Approved' THEN 1 ELSE 0 END) AS Approved,
-                         SUM(CASE WHEN c.status = 'inprogress' THEN 1 ELSE 0 END) AS inprogress,
-                 SUM(CASE WHEN c.status = 'pnp' THEN 1 ELSE 0 END) AS pnp
-                
+                SUM(CASE WHEN c.status = 'Approved' THEN 1 ELSE 0 END) AS Approved,
+                SUM(CASE WHEN c.status = 'inprogress' THEN 1 ELSE 0 END) AS inprogress,
+                SUM(CASE WHEN c.status = 'pnp' THEN 1 ELSE 0 END) AS pnp
             FROM tbl_complaints c
             $whereSql
         ");
@@ -71,40 +57,25 @@ function fetchDashboardData($pdo, $year, $month, $month_from, $month_to, $barang
 }
 
 // Call the function with the correct parameter order
-$data = fetchDashboardData($pdo, $year, $month, $month_from, $month_to, $barangay_name);
-
+$data = fetchDashboardData($pdo, $from_date, $to_date, $barangay_name);
 
 // Fetch complaints by barangay data
-/*function fetchComplaintsByBarangay($pdo, $year, $month, $month_from, $month_to) {
+function fetchComplaintsByBarangay($pdo, $from_date, $to_date) {
     try {
         $whereClauses = [];
         $params = [];
 
-        if ($year) {
-            $whereClauses[] = "YEAR(c.date_filed) = ?";
-            $params[] = $year;
-        }
-
-        if ($month) {
-            $whereClauses[] = "MONTH(c.date_filed) = ?";
-            $params[] = $month;
-        }
-
-        $dateConditions = [];
-        if ($month_from && $month_to) {
-            $dateConditions[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
-            $params[] = $month_from;
-            $params[] = $month_to;
-        } elseif ($month_from) {
-            $dateConditions[] = "MONTH(c.date_filed) >= ?";
-            $params[] = $month_from;
-        } elseif ($month_to) {
-            $dateConditions[] = "MONTH(c.date_filed) <= ?";
-            $params[] = $month_to;
-        }
-
-        if (!empty($dateConditions)) {
-            $whereClauses[] = implode(' AND ', $dateConditions);
+        // Add date range filter
+        if ($from_date && $to_date) {
+            $whereClauses[] = "c.date_filed BETWEEN ? AND ?";
+            $params[] = $from_date;
+            $params[] = $to_date;
+        } elseif ($from_date) {
+            $whereClauses[] = "c.date_filed >= ?";
+            $params[] = $from_date;
+        } elseif ($to_date) {
+            $whereClauses[] = "c.date_filed <= ?";
+            $params[] = $to_date;
         }
 
         $whereSql = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
@@ -124,36 +95,27 @@ $data = fetchDashboardData($pdo, $year, $month, $month_from, $month_to, $baranga
 }
 
 // Example usage
-$barangayData = fetchComplaintsByBarangay($pdo, $year, $month, $month_from, $month_to);*/
+$barangayData = fetchComplaintsByBarangay($pdo, $from_date, $to_date);
 
+// Fetch other data (gender, categories, etc.) following the same pattern
 
-// Fetch gender data
-// Fetch gender data
-function fetchPurokData($pdo, $year, $month, $barangay_name, $month_from, $month_to) {
+// Function to fetch purok data
+function fetchPurokData($pdo, $from_date, $to_date, $barangay_name) {
     try {
         $whereClauses = ["ub.barangay_name = ?"];
         $params = [$barangay_name];
 
-        if ($year) {
-            $whereClauses[] = "YEAR(c.date_filed) = ?";
-            $params[] = $year;
-        }
-
-        if ($month) {
-            $whereClauses[] = "MONTH(c.date_filed) = ?";
-            $params[] = $month;
-        }
-
-        if ($month_from && $month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
-            $params[] = $month_from;
-            $params[] = $month_to;
-        } elseif ($month_from) {
-            $whereClauses[] = "MONTH(c.date_filed) >= ?";
-            $params[] = $month_from;
-        } elseif ($month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) <= ?";
-            $params[] = $month_to;
+        // Add date range filter
+        if ($from_date && $to_date) {
+            $whereClauses[] = "c.date_filed BETWEEN ? AND ?";
+            $params[] = $from_date;
+            $params[] = $to_date;
+        } elseif ($from_date) {
+            $whereClauses[] = "c.date_filed >= ?";
+            $params[] = $from_date;
+        } elseif ($to_date) {
+            $whereClauses[] = "c.date_filed <= ?";
+            $params[] = $to_date;
         }
 
         $whereSql = $whereClauses ? ' AND ' . implode(' AND ', $whereClauses) : '';
@@ -175,35 +137,25 @@ function fetchPurokData($pdo, $year, $month, $barangay_name, $month_from, $month
 }
 
 // Usage
-$purokData = fetchPurokData($pdo, $year, $month, $barangay_name, $month_from, $month_to);
+$purokData = fetchPurokData($pdo, $from_date, $to_date, $barangay_name);
 
-
-/// Fetch complaint categories data
-function fetchComplaintCategoriesData($pdo, $year, $month, $barangay_name, $month_from, $month_to) {
+// Function to fetch complaint categories data
+function fetchComplaintCategoriesData($pdo, $from_date, $to_date, $barangay_name) {
     try {
         $whereClauses = ["c.barangay_saan = ?"];
         $params = [$barangay_name];
 
-        if ($year) {
-            $whereClauses[] = "YEAR(c.date_filed) = ?";
-            $params[] = $year;
-        }
-
-        if ($month) {
-            $whereClauses[] = "MONTH(c.date_filed) = ?";
-            $params[] = $month;
-        }
-
-        if ($month_from && $month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
-            $params[] = $month_from;
-            $params[] = $month_to;
-        } elseif ($month_from) {
-            $whereClauses[] = "MONTH(c.date_filed) >= ?";
-            $params[] = $month_from;
-        } elseif ($month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) <= ?";
-            $params[] = $month_to;
+        // Add date range filter
+        if ($from_date && $to_date) {
+            $whereClauses[] = "c.date_filed BETWEEN ? AND ?";
+            $params[] = $from_date;
+            $params[] = $to_date;
+        } elseif ($from_date) {
+            $whereClauses[] = "c.date_filed >= ?";
+            $params[] = $from_date;
+        } elseif ($to_date) {
+            $whereClauses[] = "c.date_filed <= ?";
+            $params[] = $to_date;
         }
 
         $whereSql = $whereClauses ? ' AND ' . implode(' AND ', $whereClauses) : '';
@@ -223,9 +175,9 @@ function fetchComplaintCategoriesData($pdo, $year, $month, $barangay_name, $mont
     }
 }
 
-
-$categoryData = fetchComplaintCategoriesData($pdo, $year, $month, $barangay_name ,  $month_from, $month_to);
+$categoryData = fetchComplaintCategoriesData($pdo, $from_date, $to_date, $barangay_name);
 ?>
+
 
 
 <!DOCTYPE html>
@@ -355,7 +307,7 @@ include '../includes/edit-profile.php';
             <i class="bi bi-skip-forward-circle-fill" style="font-size:40px; color: cyan;"></i>
                 <h2><?php echo htmlspecialchars($data['pnp'] ?? 0); ?></h2>
               
-                <p>forward in pnp</p>
+                <p>Forwarded Cases</p>
                 </a>
             </div>
             <div class="card">
@@ -385,73 +337,35 @@ include '../includes/edit-profile.php';
             <i class="bi bi-clock-history" style="font-size:40px;color: orange;"></i>
                 <h2><?php echo htmlspecialchars($data['inprogress'] ?? 0); ?></h2>
                 <a href="manage-complaints.php" style="text-decoration: none; color: inherit;">
-                <p>Pending to approve</p></a>
+                <p>Pending to Approve</p></a>
             </div>
         </div>
        
 <div class="container mt-4">
 
 
-    <form method="GET" action="">
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <label for="year">Select Year</label>
-                <select name="year" id="year" class="form-control">
-                    <option value="">All Years</option>
-                    <?php
-                    $currentYear = date('Y');
-                    for ($i = $currentYear; $i >= 2000; $i--) {
-                        $selected = ($i == $year) ? 'selected' : '';
-                        echo "<option value='$i' $selected>$i</option>";
-                    }
-                    ?>
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label for="month">Select Month</label>
-                <select name="month" id="month" class="form-control">
-                    <option value="">All Months</option>
-                    <?php
-                    for ($m = 1; $m <= 12; $m++) {
-                        $monthName = date('F', mktime(0, 0, 0, $m, 10));
-                        $selected = ($m == $month) ? 'selected' : '';
-                        echo "<option value='$m' $selected>$monthName</option>";
-                    }
-                    ?>
-                </select>
-            </div>
-            <div class="col-md-2">
-            <label for="month_from">Month From</label>
-            <select name="month_from" id="month_from" class="form-control">
-                <option value="">select</option>
-                <?php
-                for ($m = 1; $m <= 12; $m++) {
-                    $monthName = date('F', mktime(0, 0, 0, $m, 10));
-                    $selected = ($m == $month_from) ? 'selected' : '';
-                    echo "<option value='$m' $selected>$monthName</option>";
-                }
-                ?>
-            </select>
-        </div>
+<div class="row mb-4">
+  
+       
+                <div class="container mt-4">
+                    <form method="get" action="">
+                        <div class="row justify-content-center">
+                            <!-- Month From Filter -->
+                            <div class="col-md-3 mb-3">
+                                <label for="from_date" class="form-label">From Date</label>
+                                <input type="date" id="from_date" name="from_date" class="form-control" value="<?php echo isset($_GET['from_date']) ? $_GET['from_date'] : ''; ?>" onchange="this.form.submit()">
+                            </div>
 
-        <div class="col-md-2">
-            <label for="month_to">Month To</label>
-            <select name="month_to" id="month_to" class="form-control">
-                <option value="">Select</option>
-                <?php
-                for ($m = 1; $m <= 12; $m++) {
-                    $monthName = date('F', mktime(0, 0, 0, $m, 10));
-                    $selected = ($m == $month_to) ? 'selected' : '';
-                    echo "<option value='$m' $selected>$monthName</option>";
-                }
-                ?>
-            </select>
-        </div>
-            <div class="col-md-4">
-                <label>&nbsp;</label><br>
-                <button type="submit" class="btn btn-primary">Filter</button>
-            </div>
-        </div>
+                            <!-- Month To Filter -->
+                            <div class="col-md-3 mb-3">
+                                <label for="to_date" class="form-label">To Date</label>
+                                <input type="date" id="to_date" name="to_date" class="form-control" value="<?php echo isset($_GET['to_date']) ? $_GET['to_date'] : ''; ?>" onchange="this.form.submit()">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+           
+
     
         <div class="row mb-4">
         <div class="col-md-6 mb-4">

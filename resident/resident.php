@@ -30,8 +30,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $barangay_saan = isset($_POST['barangay_saan']) ? htmlspecialchars($_POST['barangay_saan']) : '';
         
         // Get 'kailan' input and convert it to database-friendly datetime format
-        $kailan = isset($_POST['kailan']) ? htmlspecialchars($_POST['kailan']) : '';
-        $kailan_db_format = date('Y-m-d H:i:s', strtotime($kailan)); // Store as 'Y-m-d H:i:s'
+        $kailan_date = isset($_POST['kailan_date']) ? htmlspecialchars($_POST['kailan_date']) : '';
+        $kailan_time = isset($_POST['kailan_time']) ? htmlspecialchars($_POST['kailan_time']) : '';
+        $kailan_time_12hr = date("h:i:s A", strtotime($kailan_time)); // Convert to 12-hour format with AM/PM
+
 
         $paano = isset($_POST['paano']) ? htmlspecialchars($_POST['paano']) : '';
         $bakit = isset($_POST['bakit']) ? htmlspecialchars($_POST['bakit']) : '';
@@ -71,9 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // Insert into tbl_complaints
         $user_id = $_SESSION['user_id']; // Retrieve user_id from session
 
-        $stmt = $pdo->prepare("INSERT INTO tbl_complaints (complaint_name, complaints, date_filed, category_id, barangays_id, complaints_person, status, responds, ano, barangay_saan, kailan, paano, bakit, user_id) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$complaint_name, $complaints, $date_filed, $category_id, $barangays_id, $complaints_person, $status, $responds, $ano, $barangay_saan, $kailan_db_format, $paano, $bakit, $user_id]);
+        $stmt = $pdo->prepare("INSERT INTO tbl_complaints (complaint_name, complaints, date_filed, category_id, barangays_id, complaints_person, status, responds, ano, barangay_saan, kailan_date, kailan_time, paano, bakit, user_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+$stmt->execute([$complaint_name, $complaints, $date_filed, $category_id, $barangays_id, $complaints_person, $status, $responds, $ano, $barangay_saan, $kailan_date, $kailan_time_12hr, $paano, $bakit, $user_id]);
 
         $complaint_id = $pdo->lastInsertId();
 
@@ -108,27 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Example retrieval of the 'kailan' field for displaying with AM/PM format
-if (isset($complaint_id)) {
-    $stmt = $pdo->prepare("SELECT kailan FROM tbl_complaints WHERE complaints_id = ?");
-    $stmt->execute([$complaint_id]);
-    $kailan_from_db = $stmt->fetchColumn();
-    
-    // Convert stored 'kailan' to AM/PM format for display
 
-    $kailan = isset($_POST['kailan']) ? htmlspecialchars($_POST['kailan']) : '';
 
-    // Convert the datetime-local format to MySQL datetime format
-    $kailan_db_format = date('Y-m-d H:i:s', strtotime($kailan));
-
-    // If you want to display AM/PM later, you can format it
-    $kailan_am_pm = date('F j, Y, g:i A', strtotime($kailan));
-
-    // Validate the conversion
-    if (!$kailan_db_format) {
-        throw new Exception("Invalid date format for 'kailan'.");
-    }
-}
 ?>
 
 
@@ -379,9 +362,11 @@ include '../includes/edit-profile.php';
     </div>
 
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="kailan">Kailan (When):</label>
-        <input type="datetime-local" name="kailan" id="kailan" class="form-control" required>
-    </div>
+        <label for="kailan_date">Kailan (When- date):</label>
+        <input type="date" name="kailan_date" id="kailan_date" class="form-control" required>
+        <label for="kailan_time">anong oras (When time):</label>
+        <input type="time" name="kailan_time" id="kailan_time" class="form-control" required>
+    </div>>
 
     <div class="col-lg-6 col-md-12 form-group">
         <label for="paano">Paano (How):</label>

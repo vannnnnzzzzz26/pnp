@@ -7,6 +7,7 @@ $firstName = isset($_SESSION['first_name']) ? $_SESSION['first_name'] : '';
 $middleName = isset($_SESSION['middle_name']) ? $_SESSION['middle_name'] : '';
 $lastName = isset($_SESSION['last_name']) ? $_SESSION['last_name'] : '';
 $extensionName = isset($_SESSION['extension_name']) ? $_SESSION['extension_name'] : '';
+$barangay_name = isset($_SESSION['barangay_name']) ? $_SESSION['barangay_name'] : '';
 
 // Check if the user is logged in and has the correct permissions (optional)
 if (!isset($_SESSION['user_id'])) {

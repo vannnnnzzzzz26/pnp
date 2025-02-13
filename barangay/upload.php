@@ -1,74 +1,83 @@
 <?php
-session_start();
-include '../connection/dbconn.php';
+require_once '../connection/dbconn.php'; // Include database connection
 
+// Check if the form is submitted and file is uploaded
 if (isset($_POST['submit'])) {
-    $uploadDir = '../uploads/';
-    
-    // Ensure complaint_id is set in form submission
-    if (isset($_POST['complaint_id'])) {
-        $complaint_id = $_POST['complaint_id'];
-        $_SESSION['complaint_id'] = $complaint_id;  // Optionally store in session for future use
-    } else {
-        echo "Complaint ID is not set. Please select a complaint.";
-        exit;
+    // Retrieve category_id dynamically (either from the form or session)
+    $categoryId = isset($_POST['category_id']) ? intval($_POST['category_id']) : null;
+
+    // Validate that category_id is provided
+    if ($categoryId === null) {
+        echo "<script>
+                alert('Category ID is missing.');
+                window.location.href = 'barangay-responder.php';
+              </script>";
+        exit();
     }
 
-    if (!empty($_FILES['cert_file']['name'])) {
-        $fileName = basename($_FILES['cert_file']['name']);
-        $targetFilePath = $uploadDir . time() . "_" . $fileName; // Unique filename
-        $fileType = pathinfo($targetFilePath, PATHINFO_EXTENSION);
+    // Check if a file was uploaded
+    if (isset($_FILES['cert_file']) && $_FILES['cert_file']['error'] == 0) {
+        $fileTmpPath = $_FILES['cert_file']['tmp_name'];
+        $fileName = $_FILES['cert_file']['name'];
+        $fileSize = $_FILES['cert_file']['size'];
+        $fileType = $_FILES['cert_file']['type'];
 
-        // Allowed file types
-        $allowedTypes = ['jpg', 'jpeg', 'png', 'pdf', 'docx'];
+        // Define allowed file types (PDF, JPG, PNG)
+        $allowedFileTypes = ['application/pdf', 'image/jpeg', 'image/png'];
 
-        // Check if the file type is allowed
-        if (in_array(strtolower($fileType), $allowedTypes)) {
+        // Check file type
+        if (in_array($fileType, $allowedFileTypes)) {
+            $uploadDir = '../uploads/certificates/'; // Ensure correct path
 
-            // Check if the file already exists for the complaint_id
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_evidence WHERE complaints_id = :complaints_id AND cert_path = :cert_path");
-            $stmt->bindParam(':complaints_id', $complaint_id);
-            $stmt->bindParam(':cert_path', $targetFilePath);
-            $stmt->execute();
-            $count = $stmt->fetchColumn();
-
-            if ($count > 0) {
-                echo "This file has already been uploaded for this complaint.";
-                exit;
+            // Create upload directory if it doesn't exist
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
             }
 
-            // Proceed with uploading if file is not already uploaded
-            if (move_uploaded_file($_FILES['cert_file']['tmp_name'], $targetFilePath)) {
-                // Ensure $pdo is defined before using it
-                if (!isset($pdo)) {
-                    throw new Exception("Database connection is not available.");
-                }
+            // Generate a unique file name to prevent conflicts
+            $newFileName = time() . '_' . basename($fileName);
+            $fileDest = $uploadDir . $newFileName;
 
-                // Check if complaint_id exists in tbl_complaints
-                $stmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_complaints WHERE complaints_id = :complaints_id");
-                $stmt->bindParam(':complaints_id', $complaint_id);
-                $stmt->execute();
-                $count = $stmt->fetchColumn();
+            // Move uploaded file to destination
+            if (move_uploaded_file($fileTmpPath, $fileDest)) {
+                try {
+                    // Insert file path and category_id into database (foreign key relation)
+                    $query = "INSERT INTO tbl_complaintcategories (category_id, cert_path) VALUES (:categoryId, :certPath)";
+                    $stmt = $pdo->prepare($query);
+                    $stmt->bindParam(':categoryId', $categoryId, PDO::PARAM_INT); // Use category_id from the form
+                    $stmt->bindParam(':certPath', $fileDest, PDO::PARAM_STR);
 
-                if ($count > 0) {
-                    // Insert into tbl_evidence
-                    $stmt = $pdo->prepare("INSERT INTO tbl_evidence (complaints_id, cert_path, date_uploaded) VALUES (:complaints_id, :cert_path, NOW())");
-                    $stmt->bindParam(':complaints_id', $complaint_id);
-                    $stmt->bindParam(':cert_path', $targetFilePath);
-                    $stmt->execute();
-
-                    echo "File uploaded successfully.";
-                } else {
-                    echo "Invalid complaint ID. It does not exist in the database.";
+                    if ($stmt->execute()) {
+                        echo "<script>
+                                alert('File uploaded and saved successfully!');
+                                window.location.href = 'barangay-responder.php';
+                              </script>";
+                    } else {
+                        echo "<script>
+                                alert('Error saving file in database.');
+                                window.location.href = 'barangay-responder.php';
+                              </script>";
+                    }
+                } catch (PDOException $e) {
+                    die("Database error: " . $e->getMessage());
                 }
             } else {
-                echo "Error uploading the file.";
+                echo "<script>
+                        alert('Error uploading file.');
+                        window.location.href = 'barangay-responder.php';
+                      </script>";
             }
         } else {
-            echo "Invalid file type. Only JPG, JPEG, PNG, PDF, and DOCX are allowed.";
+            echo "<script>
+                    alert('Only PDF, JPG, and PNG files are allowed.');
+                    window.location.href = 'barangay-responder.php';
+                  </script>";
         }
     } else {
-        echo "Please select a file.";
+        echo "<script>
+                alert('No file uploaded or an error occurred.');
+                window.location.href = 'barangay-responder.php';
+              </script>";
     }
 }
 ?>

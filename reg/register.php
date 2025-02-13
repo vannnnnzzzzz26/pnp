@@ -256,12 +256,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div id="password-strength" class="progress mt-2" style="height: 10px;">
         <div id="strength-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
-    <small id="strength-text" class="form-text"></small>
+    <small id="strength-text" class="form-text"></small> 
+
 </div>
 <div class="col-md-6 mb-3">
     <label for="confirm_password" class="form-label">Re-enter Password:</label>
     <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Re-enter your password" required>
-
+    <div id="confirm-password-strength" class="progress mt-2" style="height: 10px;">
+        <div id="confirm-strength-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+    <small id="confirm-strength-text" class="form-text"></small>
 
 </div>
 
@@ -270,8 +274,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="col-md-6 mb-3">
                     <label for="accountType" class="form-label">Account Type:</label>
                     <select id="accountType" name="accountType" class="form-select" required>
-                        <option value="Barangay Official">Barangay Official</option>
-                        <option value="PNP Officer">PNP Officer</option>
                         <option value="Resident">Resident</option>
                     </select>
                 </div>
@@ -530,53 +532,81 @@ document.getElementById('cp_number').addEventListener('input', function (e) {
 
 
 
-        function assessPasswordStrength(password) {
-        let strength = 0;
+     // Password Strength Indicator
+document.getElementById('password').addEventListener('input', function() {
+    var password = this.value;
+    var strengthBar = document.getElementById('strength-bar');
+    var strengthText = document.getElementById('strength-text');
+    var strength = 0;
 
-        // Check for various password strength criteria
-        if (password.length >= 8) strength++; // Length
-        if (/[A-Z]/.test(password)) strength++; // Uppercase letters
-        if (/[a-z]/.test(password)) strength++; // Lowercase letters
-        if (/\d/.test(password)) strength++; // Numbers
-        
-        // Check for special characters
-        if (/[@$!%*?&]/.test(password)) {
-            strength = 4; // Directly assign maximum strength if a special character is found
-        }
-
-        return strength;
+    // Check password strength
+    if (password.length >= 8) {
+        strength += 25; // Length check
+    }
+    if (/[A-Z]/.test(password)) {
+        strength += 25; // Uppercase check
+    }
+    if (/[a-z]/.test(password)) {
+        strength += 25; // Lowercase check
+    }
+    if (/\d/.test(password)) {
+        strength += 25; // Number check
     }
 
-    document.getElementById('password').addEventListener('input', function() {
-        const password = this.value;
-        const strengthBar = document.getElementById('strength-bar');
-        const strengthText = document.getElementById('strength-text');
-        const strength = assessPasswordStrength(password);
-        
-        // Determine strength level and update the progress bar
-        switch (strength) {
-            case 0:
-            case 1:
-                strengthBar.style.width = '20%';
-                strengthBar.className = 'progress-bar weak';
-                strengthText.innerText = 'Weak';
-                break;
-            case 2:
-                strengthBar.style.width = '50%';
-                strengthBar.className = 'progress-bar medium';
-                strengthText.innerText = 'Medium';
-                break;
-            case 3:
-            case 4:
-                strengthBar.style.width = '100%';
-                strengthBar.className = 'progress-bar strong';
-                strengthText.innerText = 'Strong';
-                break;
-            default:
-                strengthBar.style.width = '0%';
-                strengthText.innerText = '';
+    // Update the password strength bar and text
+    strengthBar.style.width = strength + '%';
+    strengthBar.setAttribute('aria-valuenow', strength);
+
+    if (strength < 25) {
+        strengthText.textContent = 'Poor';
+        strengthBar.className = 'progress-bar bg-danger';
+    } else if (strength < 50) {
+        strengthText.textContent = 'Weak';
+        strengthBar.className = 'progress-bar bg-warning';
+    } else if (strength < 75) {
+        strengthText.textContent = 'Fair';
+        strengthBar.className = 'progress-bar bg-info';
+    } else {
+        strengthText.textContent = 'Strong';
+        strengthBar.className = 'progress-bar bg-success';
+    }
+
+    // Match the password and confirm password
+    checkPasswordMatch();
+});
+
+// Confirm Password Strength Indicator
+document.getElementById('confirm_password').addEventListener('input', function() {
+    checkPasswordMatch();
+});
+
+// Function to check if password and confirm password match
+function checkPasswordMatch() {
+    var password = document.getElementById('password').value;
+    var confirmPassword = document.getElementById('confirm_password').value;
+    var confirmStrengthBar = document.getElementById('confirm-strength-bar');
+    var confirmStrengthText = document.getElementById('confirm-strength-text');
+
+    if (confirmPassword.length > 0) {
+        if (password === confirmPassword) {
+            confirmStrengthBar.style.width = '100%';
+            confirmStrengthBar.setAttribute('aria-valuenow', 100);
+            confirmStrengthText.textContent = 'Passwords Match';
+            confirmStrengthBar.className = 'progress-bar bg-success';
+        } else {
+            confirmStrengthBar.style.width = '50%';
+            confirmStrengthBar.setAttribute('aria-valuenow', 50);
+            confirmStrengthText.textContent = 'Passwords Do Not Match';
+            confirmStrengthBar.className = 'progress-bar bg-danger';
         }
-    });
+    } else {
+        confirmStrengthBar.style.width = '0%';
+        confirmStrengthBar.setAttribute('aria-valuenow', 0);
+        confirmStrengthText.textContent = '';
+        confirmStrengthBar.className = 'progress-bar bg-light';
+    }
+}
+
     </script>
 </body>
 </html>

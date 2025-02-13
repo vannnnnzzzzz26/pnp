@@ -70,6 +70,12 @@
         <label><strong>Nationality:</strong></label>
         <input type="text" id="modal-nationality" style="display: block; margin-bottom: 10px; width: 100%;">
     </div>
+
+
+    <div class="col-md-6 text-center">
+                        <p><strong>Selfie:</strong></p>
+                        <img id="modal-cert_path" src="" alt="Complaint Image" style="max-width: 100px; cursor: pointer;">
+                    </div>
 </div>
 
 <!-- Hearing History Section -->
@@ -92,12 +98,20 @@
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#viewsComplaintModal" id="setHearingBtn">
                     Set Hearing
                 </button>
-          
-                <form method="POST" enctype="multipart/form-data" action="upload.php">
-    <input type="hidden" name="complaint_id" value=""> <!-- Complaint ID -->
-    <input type="file" name="cert_file">
-    <input type="submit" name="submit" value="Upload">
+                <form action="upload.php" method="post" enctype="multipart/form-data">
+    <div class="col-md-6 mb-3">
+        
+        <label for="cert_file" class="form-label">Upload Certificate:</label>
+        <input type="hidden" name="category_id" value="<?php echo $categoryId; ?>"> <!-- Dynamically set category_id -->
+
+        <input type="file" name="cert_file" id="cert_file" class="form-control" required>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <input type="submit" name="submit" value="Upload" class="btn btn-primary">
+    </div>
 </form>
+
 
             </div>
         </div>

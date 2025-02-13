@@ -13,7 +13,6 @@ $extensionName = $_SESSION['extension_name'] ?? '';
 $email = $_SESSION['email'] ?? '';
 $barangay_name = $_SESSION['barangay_name'] ?? '';
 $pic_data = $_SESSION['pic_data'] ?? '';
-$barangay_saan = $_SESSION['barangay_saan'] ?? '';
 
 ?>
 
@@ -87,15 +86,14 @@ include '../includes/pnp-nav.php';
 include '../includes/pnp-bar.php';
 ?>
 <center>
+
+
+
+
 <div class="content">
     <div class="container">
         <h2 class="mt-3 mb-4">Complaints</h2>
-
-       <!-- Filter Row for Barangay and Category -->
-<div class="row mb-3">
-   <!-- Filter Row for Barangay, Category, and Date Range -->
-<div class="row mb-3">
-<form method="GET">
+        <form method="GET">
     <label class="form-label">Filter by Barangay:</label>
     <select id="barangayDropdown" name="barangay" onchange="this.form.submit()">
         <option value="">All</option>
@@ -146,7 +144,7 @@ include '../includes/pnp-bar.php';
             <table class="table table-striped table-bordered table-center" id="complaintsTable">
                 <thead>
                     <tr>
-                        <th>#</th>
+                    <th>#</th>
                         <th>Date Filed</th>
                         <th>Name</th>
                     
@@ -159,6 +157,7 @@ include '../includes/pnp-bar.php';
                         <th>bakit</th>
                         <th>Category</th> <!-- Add Category Column -->
                         <th>Action</th>
+
                     </tr>
                 </thead>
                 <tbody>
@@ -166,121 +165,79 @@ include '../includes/pnp-bar.php';
     // Function to display PNP complaints
     function displayPNPComplaints($pdo) {
         try {
-            $selectedBarangay = isset($_GET['barangay']) ? $_GET['barangay'] : '';
-            $fromDate = isset($_GET['from_date']) ? $_GET['from_date'] : '';
-            $toDate = isset($_GET['to_date']) ? $_GET['to_date'] : '';
-            $selectedCategory = isset($_GET['category']) ? $_GET['category'] : '';
-            
+            $conditions = ["c.responds = 'pnp'", "c.status != 'Filed in the court'"];
+            $params = [];
+    
+            // Filter by Barangay
+            if (!empty($_GET['barangay'])) {
+                $conditions[] = "c.barangay_saan = ?";
+                $params[] = $_GET['barangay'];
+            }
+    
+            // Filter by Date Range
+            if (!empty($_GET['from_date']) && !empty($_GET['to_date'])) {
+                $conditions[] = "c.date_filed BETWEEN ? AND ?";
+                $params[] = $_GET['from_date'];
+                $params[] = $_GET['to_date'];
+            } elseif (!empty($_GET['from_date'])) {
+                $conditions[] = "c.date_filed >= ?";
+                $params[] = $_GET['from_date'];
+            } elseif (!empty($_GET['to_date'])) {
+                $conditions[] = "c.date_filed <= ?";
+                $params[] = $_GET['to_date'];
+            }
+    
+            // Filter by Category
+            if (!empty($_GET['category'])) {
+                $conditions[] = "c.category_id = ?";
+                $params[] = $_GET['category'];
+            }
+    
+            // Construct the query with conditions
             $query = "
                 SELECT c.*, cat.complaints_category, u.purok
-                FROM tbl_complaints c
+                FROM tbl_complaints c  
                 JOIN tbl_users u ON u.user_id = c.user_id
                 JOIN tbl_complaintcategories cat ON c.category_id = cat.category_id
-                WHERE c.responds = 'pnp' AND c.status != 'Filed in the court'
+                WHERE " . implode(" AND ", $conditions) . "
+                ORDER BY c.date_filed DESC
             ";
-            
-            // Apply filter by barangay if selected
-            if (!empty($selectedBarangay)) {
-                $query .= " AND c.barangay_saan = :selectedBarangay";
-            }
-            
-            // Apply filter by date range if provided
-            if (!empty($fromDate)) {
-                $query .= " AND c.date_filed >= :fromDate";
-            }
-            if (!empty($toDate)) {
-                $query .= " AND c.date_filed <= :toDate";
-            }
-            
-            // Apply filter by category if selected
-            if (!empty($selectedCategory)) {
-                $query .= " AND c.category_id = :selectedCategory";
-            }
-            
-            $query .= " ORDER BY c.date_filed DESC";
-            
-            // Prepare the query
+    
+            // Prepare and execute the query
             $stmt = $pdo->prepare($query);
-            
-            // Bind the parameters if filters are applied
-            if (!empty($selectedBarangay)) {
-                $stmt->bindParam(':selectedBarangay', $selectedBarangay, PDO::PARAM_STR);
-            }
-            if (!empty($fromDate)) {
-                $stmt->bindParam(':fromDate', $fromDate, PDO::PARAM_STR);
-            }
-            if (!empty($toDate)) {
-                $stmt->bindParam(':toDate', $toDate, PDO::PARAM_STR);
-            }
-            if (!empty($selectedCategory)) {
-                $stmt->bindParam(':selectedCategory', $selectedCategory, PDO::PARAM_INT);
-            }
-            
-            // Execute the query
-            $stmt->execute();
+            $stmt->execute($params);
     
-            // Check if there are any rows returned
+            // Display results
             if ($stmt->rowCount() > 0) {
-                $row_number = 1; // Initialize the row number
-    
-                // Loop through the results and display each complaint
+                $row_number = 1;
                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                    $complaint_id = $row['complaints_id'];
-                    $date_filed = htmlspecialchars($row['date_filed']);
 
-                    $complaint_name = htmlspecialchars($row['complaint_name']);
-                    $complaint_purok = htmlspecialchars($row['purok']);
-
-                    $complaint_barangay = htmlspecialchars($row['barangay_saan']);
-
-                    $complaint_ano = htmlspecialchars($row['ano']);
-                    $complaint_barangay_saan= htmlspecialchars($row['barangay_saan']);
-                    $complaint_kailan = htmlspecialchars($row['kailan']);
-                    $complaint_paano = htmlspecialchars($row['paano']);
-                    $complaint_bakit= htmlspecialchars($row['bakit']);
-                    $complaint_description = htmlspecialchars($row['complaints']);
-                    $category = htmlspecialchars($row['complaints_category']);
-    
-                    // Fetch barangay name based on barangays_id
-                    if (!empty($row['barangays_id'])) {
-                        $stmtBar = $pdo->prepare("SELECT barangay_name FROM tbl_users_barangay WHERE barangays_id = ?");
-                        $stmtBar->execute([$row['barangays_id']]);
-                        $barangay_name = htmlspecialchars($stmtBar->fetchColumn());
-                    } else {
-                        $barangay_name = 'Unknown';
-                    }
-    
-                    $address = $barangay_name;
-    
-
+                    ($row['kailan_date']) . ' ' . htmlspecialchars($row['kailan_time']);
+                    echo "<tr>";
+                    echo "<td style='text-align: center; vertical-align: middle;'>{$row_number}</td>"; 
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$row['date_filed']}</td>"; 
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$row['complaint_name']}</td>"; 
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$row['barangay_saan']}</td>"; 
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$row['purok']}</td>"; 
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$row['ano']}</td>"; 
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$row['barangay_saan']}</td>"; 
+                    echo "<td style='text-align: left; vertical-align: middle;'>" . htmlspecialchars($row['paano']) . ' ' . htmlspecialchars($row['kailan_time']) . "</td>";
                     
-                    // Display the table row
-                    echo "<td style='text-align: center; vertical-align: middle;'>{$row_number}</td>"; // Display row number centered
-                    echo "<td style='text-align: left; vertical-align: middle;'>{$date_filed }</td>"; 
-
-                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_name}</td>"; // Align name to the left
-                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay }</td>";
-                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_purok }</td>";
-                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_ano }</td>"; 
-                         
-                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_barangay_saan }</td>"; 
-                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_kailan }</td>"; 
-                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_paano }</td>"; 
-                                    echo "<td style='text-align: left; vertical-align: middle;'>{$complaint_bakit }</td>";
-                    echo "<td class='category'>{$category}</td>"; // Display category
-                    echo "<td><button class='btn btn-info btn-sm' data-bs-toggle='modal' data-bs-target='#viewDetailsModal' data-id='{$complaint_id}'>View Details</button></td>";
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$row['paano']}</td>"; 
+                    echo "<td style='text-align: left; vertical-align: middle;'>{$row['bakit']}</td>"; 
+                    echo "<td class='category'>{$row['complaints_category']}</td>"; 
+                    echo "<td><button class='btn btn-info btn-sm' data-bs-toggle='modal' data-bs-target='#viewDetailsModal' data-id='{$row['complaints_id']}'>View Details</button></td>";
                     echo "</tr>";
-    
                     $row_number++;
                 }
             } else {
-                echo "<tr><td colspan='6' class='text-center'>No record found</td></tr>";
+                echo "<tr><td colspan='12' class='text-center'>No record found</td></tr>";
             }
         } catch (PDOException $e) {
-            echo "<tr><td colspan='6' class='text-center'>Error fetching PNP complaints: " . $e->getMessage() . "</td></tr>";
+            echo "<tr><td colspan='12' class='text-center'>Error fetching PNP complaints: " . $e->getMessage() . "</td></tr>";
         }
     }
-
+    
     displayPNPComplaints($pdo);
 ?>
 
@@ -372,19 +329,96 @@ include '../includes/pnp-bar.php';
     <script src="../scripts/script.js"></script>
     <script>
 
-document.getElementById("barangayFilter").addEventListener("change", function () {
-    var selectedBarangay = this.value;
+document.addEventListener("DOMContentLoaded", function () {
+    const notificationButton = document.getElementById('notificationButton');
+    const notificationCountBadge = document.getElementById("notificationCount");
 
-    // Reload the page with the selected barangay in the URL
-    if (selectedBarangay === "") {
-        window.location.href = window.location.pathname;
-    } else {
-        window.location.href = window.location.pathname + "?barangay=" + encodeURIComponent(selectedBarangay);
+    function fetchNotifications() {
+        return fetch('notifications.php', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const notificationCount = data.notifications.length;
+                updateNotificationBadge(notificationCount);
+                updatePopoverContent(data.notifications);
+            } else {
+                console.error("Failed to fetch notifications");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching notifications:", error);
+        });
     }
+
+    function updateNotificationBadge(count) {
+        notificationCountBadge.textContent = count > 0 ? count : "0";
+        notificationCountBadge.classList.toggle("d-none", count === 0);
+    }
+
+    function updatePopoverContent(notifications) {
+        let notificationListHtml = notifications.length > 0 ?
+            notifications.map(notification => `
+                <div class="dropdown-item" data-id="${notification.complaints_id}">
+                    Complaint: ${notification.complaint_name}<br>
+                    Barangay: ${notification.barangay_name}<br>
+                    Status: ${notification.status}
+                    <hr>
+                </div>
+            `).join('') :
+            '<div class="dropdown-item text-center">No new notifications</div>';
+
+        const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
+        if (popoverInstance) {
+            popoverInstance.setContent({ '.popover-body': notificationListHtml });
+        } else {
+            new bootstrap.Popover(notificationButton, {
+                html: true,
+                content: function () {
+                    return `<div class="popover-content">${notificationListHtml}</div>`;
+                },
+                container: 'body'
+            });
+        }
+
+        // Add click event listener to mark as read
+        document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
+            item.addEventListener('click', function () {
+                const notificationId = this.getAttribute('data-id');
+                markNotificationAsRead(notificationId);
+            });
+        });
+    }
+
+    function markNotificationAsRead(notificationId) {
+  
+        fetch('notifications.php?action=update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notificationId, userId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                fetchNotifications(); // Refresh notifications
+            } else {
+                console.error("Failed to mark notification as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+
+    // Fetch notifications when the page loads
+    fetchNotifications();
 });
-
-
-
 
 
 
@@ -505,7 +539,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-
     // Handle "Settle Complaint" button click with SweetAlert
     document.getElementById('settleComplaintBtn').addEventListener('click', function () {
         var complaintId = this.getAttribute('data-id');
@@ -577,8 +610,136 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-  
-    
+    document.addEventListener("DOMContentLoaded", function () {
+    const notificationButton = document.getElementById('notificationButton');
+    const modalBody = document.getElementById('notificationModalBody');
+
+    function fetchNotifications() {
+        return fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json().catch(() => ({ success: false }))) // Handle JSON parsing errors
+        .then(data => {
+            if (data.success) {
+                const notificationCount = data.notifications.length;
+                const notificationCountBadge = document.getElementById("notificationCount");
+
+                if (notificationCount > 0) {
+                    notificationCountBadge.textContent = notificationCount;
+                    notificationCountBadge.classList.remove("d-none");
+                } else {
+                    notificationCountBadge.textContent = "0";
+                    notificationCountBadge.classList.add("d-none");
+                }
+
+                let notificationListHtml = '';
+                if (notificationCount > 0) {
+                    data.notifications.forEach(notification => {
+                        notificationListHtml += `
+                            <div class="dropdown-item" 
+                                 data-id="${notification.complaints_id}" 
+                                 data-status="${notification.status}" 
+                                 data-complaint-name="${notification.complaint_name}" 
+                                 data-barangay-name="${notification.barangay_name}">
+                                Complaint: ${notification.complaint_name}<br>
+                                Barangay: ${notification.barangay_name}<br>
+                                Status: ${notification.status}
+                                <hr>
+                            </div>
+
+
+                            
+                        `;
+                    });
+                } else {
+                    notificationListHtml = '<div class="dropdown-item text-center">No new notifications</div>';
+                }
+
+                const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
+                if (popoverInstance) {
+                    popoverInstance.setContent({
+                        '.popover-body': notificationListHtml
+                    });
+                } else {
+                    new bootstrap.Popover(notificationButton, {
+                        html: true,
+                        content: function () {
+                            return `<div class="popover-content">${notificationListHtml}</div>`;
+                        },
+                        container: 'body'
+                    });
+                }
+
+                document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
+                    item.addEventListener('click', function () {
+                        const notificationId = this.getAttribute('data-id');
+                        markNotificationAsRead(notificationId);
+                    });
+                });
+            } else {
+                console.error("Failed to fetch notifications");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching notifications:", error);
+        });
+    }
+
+    function markNotificationAsRead(notificationId) {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notificationId: notificationId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Notification marked as read');
+                fetchNotifications(); // Refresh notifications
+            } else {
+                console.error("Failed to mark notification as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+
+    fetchNotifications();
+
+    notificationButton.addEventListener('shown.bs.popover', function () {
+        markNotificationsAsRead();
+    });
+
+    function markNotificationsAsRead() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ markAsRead: true })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const badge = document.querySelector(".badge.bg-danger");
+                if (badge) {
+                    badge.classList.add("d-none");
+                }
+            } else {
+                console.error("Failed to mark notifications as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+});
     function confirmLogout() {
         Swal.fire({
             title: "Are you sure?",
@@ -596,110 +757,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
      
-
-
-
-
-
-
-
-
-
-
-
-
-
-    document.addEventListener("DOMContentLoaded", function () {
-    const notificationButton = document.getElementById('notificationButton');
-    const notificationCountBadge = document.getElementById("notificationCount");
-
-    function fetchNotifications() {
-        return fetch('notifications.php', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const notificationCount = data.notifications.length;
-                updateNotificationBadge(notificationCount);
-                updatePopoverContent(data.notifications);
-            } else {
-                console.error("Failed to fetch notifications");
-            }
-        })
-        .catch(error => {
-            console.error("Error fetching notifications:", error);
-        });
-    }
-
-    function updateNotificationBadge(count) {
-        notificationCountBadge.textContent = count > 0 ? count : "0";
-        notificationCountBadge.classList.toggle("d-none", count === 0);
-    }
-
-    function updatePopoverContent(notifications) {
-        let notificationListHtml = notifications.length > 0 ?
-            notifications.map(notification => `
-                <div class="dropdown-item" data-id="${notification.complaints_id}">
-                    Complaint: ${notification.complaint_name}<br>
-                    Barangay: ${notification.barangay_name}<br>
-                    Status: ${notification.status}
-                    <hr>
-                </div>
-            `).join('') :
-            '<div class="dropdown-item text-center">No new notifications</div>';
-
-        const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
-        if (popoverInstance) {
-            popoverInstance.setContent({ '.popover-body': notificationListHtml });
-        } else {
-            new bootstrap.Popover(notificationButton, {
-                html: true,
-                content: function () {
-                    return `<div class="popover-content">${notificationListHtml}</div>`;
-                },
-                container: 'body'
-            });
-        }
-
-        // Add click event listener to mark as read
-        document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
-            item.addEventListener('click', function () {
-                const notificationId = this.getAttribute('data-id');
-                markNotificationAsRead(notificationId);
-            });
-        });
-    }
-
-    function markNotificationAsRead(notificationId) {
-  
-        fetch('notifications.php?action=update', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notificationId, userId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                fetchNotifications(); // Refresh notifications
-            } else {
-                console.error("Failed to mark notification as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-
-    // Fetch notifications when the page loads
-    fetchNotifications();
-});
-
     </script>
 </body>
 </html>

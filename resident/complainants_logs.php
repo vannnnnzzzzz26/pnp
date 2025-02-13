@@ -151,7 +151,7 @@ include '../includes/resident-bar.php';
                                         <td><?php echo htmlspecialchars($complaint['date_filed']); ?></td>
                                         <td><?php echo htmlspecialchars($complaint['ano']); ?></td>
                                         <td><?php echo htmlspecialchars($complaint['barangay_saan']); ?></td>
-                                        <td><?php echo htmlspecialchars($complaint['kailan']); ?></td>
+                                        <td><?php echo htmlspecialchars($complaint['kailan_date']) . ' ' . htmlspecialchars($complaint['kailan_time']); ?></td>
                                         <td><?php echo htmlspecialchars($complaint['paano']); ?></td>
                                         <td><?php echo htmlspecialchars($complaint['bakit']); ?></td>
                                         <td>

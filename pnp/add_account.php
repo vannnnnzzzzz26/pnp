@@ -31,28 +31,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $security_question = getPostData('security_question');
     $security_answer = getPostData('security_answer');
 
-    // New fields
-    $civil_status = getPostData('civil_status');
-    $nationality = getPostData('nationality');
-    $age = getPostData('age');
-    $birth_date = getPostData('birth_date');
-    $gender = getPostData('gender');
-    $place_of_birth = getPostData('place_of_birth'); // Added field for place of birth
-    $purok = getPostData('purok'); // Added field for purok
-    $educational_background = getPostData('educational_background'); // Added field for educational background
-    $selfie_path = getPostData('selfie_path'); // Added field for educational background
-
     // Validate form data
-    if ($first_name && $middle_name && $last_name && $cp_number && $password && $confirm_password && $accountType && $barangay_name && $security_question && $security_answer && $civil_status && $nationality && $age && $birth_date && $gender && $place_of_birth && $purok && $educational_background) {
+    if ($first_name && $middle_name && $last_name && $cp_number && $password && $confirm_password && $accountType && $barangay_name && $security_question && $security_answer) {
         // Check if passwords match
         if ($password !== $confirm_password) {
-            echo 'error_password';
+            echo "<script>alert('Passwords do not match.'); window.location.href = 'add_account.php';</script>";
             exit;
         }
 
         // Check if password is strong
         if (!isStrongPassword($password)) {
-            echo 'error_weak_password';
+            echo "<script>alert('Password is too weak.'); window.location.href = 'add_account.php';</script>";
             exit;
         }
 
@@ -62,13 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $count = $stmt_check_cp_number->fetchColumn();
 
         if ($count > 0) {
-            echo 'error_cp_number_exists';
+            echo "<script>alert('CP Number already exists.'); window.location.href = 'add_account.php';</script>";
             exit;
         }
 
         // Handle file upload for profile picture
-        $pic_data = null;
-        if ($_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+        $pic_data = 'default-profile-picture.jpg'; // Default image if no file is uploaded
+        if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
             $temp_name = $_FILES['profile_picture']['tmp_name'];
             $file_name = $_FILES['profile_picture']['name'];
             $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
@@ -80,31 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Validate file type and move file
             if (in_array(strtolower($file_extension), $allowed_extensions)) {
                 if (move_uploaded_file($temp_name, $destination)) {
-                    $pic_data = $destination;
+                    $pic_data = $new_file_name; // Set uploaded file name
                 } else {
-                    echo 'error_file_upload';
+                    echo "<script>alert('Error uploading file.'); window.location.href = 'add_account.php';</script>";
                     exit;
                 }
             } else {
-                echo 'error_invalid_file_type';
-                exit;
-            }
-        }
-
-        // Handle Selfie upload
-        $selfie_path = null;
-        if (isset($_FILES['selfie']) && $_FILES['selfie']['error'] == UPLOAD_ERR_OK) {
-            $selfie_filename = basename($_FILES['selfie']['name']);
-            $selfie_path = '../uploads/' . uniqid('selfie_') . '_' . $selfie_filename;
-
-            if (!file_exists('../uploads')) {
-                mkdir('../uploads', 0777, true); 
-            }
-
-            if (move_uploaded_file($_FILES['selfie']['tmp_name'], $selfie_path)) {
-                // Selfie uploaded successfully
-            } else {
-                echo 'error_selfie_upload';
+                echo "<script>alert('Invalid file type.'); window.location.href = 'add_account.php';</script>";
                 exit;
             }
         }
@@ -118,33 +89,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         $hashed_answer = password_hash($security_answer, PASSWORD_DEFAULT);
 
-        // Insert into tbl_users (Fixed fields count and removed invalid variables)
+        // Insert into tbl_users
         $stmt_users = $pdo->prepare("
             INSERT INTO tbl_users 
-            (first_name, middle_name, last_name, extension_name, cp_number, password, accountType, barangays_id, pic_data, selfie_path, security_question, security_answer, civil_status, nationality, age, birth_date, gender, place_of_birth, purok, educational_background) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (first_name, middle_name, last_name, extension_name, cp_number, password, accountType, barangays_id, pic_data, security_question, security_answer) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt_users->execute([
             $first_name, $middle_name, $last_name, $extension_name, $cp_number, $hashedPassword, $accountType, 
-            $barangays_id, $pic_data, $selfie_path, $security_question, $hashed_answer, 
-            $civil_status, $nationality, $age, $birth_date, $gender, 
-            $place_of_birth, $purok, $educational_background
+            $barangays_id, $pic_data, $security_question, $hashed_answer
         ]);
 
         // Check if the user was successfully inserted
         if ($stmt_users->rowCount() > 0) {
-            echo 'success';
-            exit;
+            echo "<script>alert('Registration successful.'); window.location.href = 'pnp.php';</script>";
         } else {
-            echo 'error_database';
-            exit;
+            echo "<script>alert('Database error.'); window.location.href = 'add_account.php';</script>";
         }
+        exit;
     } else {
-        echo 'error_required_fields';
+        echo "<script>alert('All fields are required.'); window.location.href = 'add_account.php';</script>";
         exit;
     }
 }
 ?>
+
+
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -152,9 +123,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Add Bootstrap CSS if not already added -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <!-- Include SweetAlert2 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.3.4/dist/sweetalert2.min.css" rel="stylesheet">
     <style>
         body {
             background-image: url('../reg/poles.jpg');
@@ -195,25 +167,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
 
-        .progress {
-    background-color: #e9ecef;
+        .progress-bar {
+    transition: width 0.5s ease;
 }
 
-.progress-bar {
-    transition: width 0.4s;
+.progress-bar.bg-danger {
+    background-color: red !important;
 }
 
-.weak {
-    background-color: red;
+.progress-bar.bg-warning {
+    background-color: orange !important;
 }
 
-.medium {
-    background-color: orange;
+.progress-bar.bg-info {
+    background-color: blue !important;
 }
 
-.strong {
-    background-color: green;
+.progress-bar.bg-success {
+    background-color: green !important;
 }
+
 
 
     </style>
@@ -221,8 +194,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <body>
     <div class="container">
         <h1 class="text-center mb-4">Register</h1>
-        <form id="registerForm" method="post">
-            <div class="row">
+        <form id="registerForm" method="POST" enctype="multipart/form-data">
+        <div class="row">
                 <!-- First Name and Middle Name -->
                 <div class="col-md-6 mb-3">
                     <label for="first_name" class="form-label">First Name:</label>
@@ -256,12 +229,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div id="password-strength" class="progress mt-2" style="height: 10px;">
         <div id="strength-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
-    <small id="strength-text" class="form-text"></small>
+    <small id="strength-text" class="form-text"></small> 
+
 </div>
 <div class="col-md-6 mb-3">
     <label for="confirm_password" class="form-label">Re-enter Password:</label>
     <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Re-enter your password" required>
-
+    <div id="confirm-password-strength" class="progress mt-2" style="height: 10px;">
+        <div id="confirm-strength-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+    <small id="confirm-strength-text" class="form-text"></small>
 
 </div>
 
@@ -303,79 +280,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
 
 
-                <label for="purok">Purok:</label>
-<select name="purok" required>
-    <option value="">Select Purok</option>
-    <option value="Purok 1">Purok 1</option>
-    <option value="Purok 2">Purok 2</option>
-    <option value="Purok 3">Purok 3</option>
-    <option value="Purok 4">Purok 4</option>
-    <option value="Purok 5">Purok 5</option>
-    <option value="Purok 6">Purok 6</option>
-    <option value="Purok 7">Purok 7</option>
-</select>
-
-
-                <div class="form-group">
-    <label for="nationality">Nationality/Citizenship:</label>
-    <input type="text" id="nationality" name="nationality" class="form-control" required>
-</div>
 
 
 
 
-<div class="col-lg-6 col-md-12 form-group">
-              <label for="birth_date">Birth Date:</label>
-              <input type="date" id="birth_date" name="birth_date" class="form-control" required>
-            </div>
-          </div>
-
-          <!-- Gender and Age Information -->
-          <div class="row">
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="gender">Gender:</label>
-              <select id="gender" name="gender" class="form-control" required>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
-            </div>
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="age">Age:</label>
-              <input type="number" id="age" name="age" class="form-control" readonly>
-            </div>
-          </div>
 
           <!-- Place of Birth and Civil Status -->
           <div class="row">
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="place_of_birth">Place of Birth:</label>
-              <input type="text" id="place_of_birth" name="place_of_birth" class="form-control" required>
-            </div>
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="civil_status">Civil Status:</label>
-              <select id="civil_status" name="civil_status" class="form-control" required>
-                <option value="Single">Single</option>
-                <option value="Married">Married</option>
-                <option value="Live-in">Live-in</option>
-                <option value="Divorced">Divorced</option>
-                <option value="Widowed">Widowed</option>
-                <option value="Separated">Separated</option>
-              </select>
-            </div>
+            
+           
 
 
             <div class="row">
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="educational_background">Educational Attainment:</label>
-              <select id="educational_background" name="educational_background" class="form-control" required>
-                <option value="No Formal Education">No Formal Education</option>
-                <option value="Elementary">Elementary</option>
-                <option value="Highschool">Highschool</option>
-                <option value="College">College</option>
-                <option value="Post Graduate<">Post Graduate</option>
-              </select>
-            </div>
-
+          
+            
 
                 <!-- Profile Picture Upload -->
                 <div class="col-md-6 mb-3">
@@ -386,10 +304,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             
           </div>
-          <div class="form-group">
-        <label for="selfie">Upload Selfie:</label>
-        <input type="file" name="selfie" accept="image/*" class="form-control" required>
-    </div>
+       
             <div class="col-12 mb-3">
                 <label for="security_question" class="form-label">Security Question 1:</label>
                 <select id="security_question" name="security_question" class="form-select" required>
@@ -412,9 +327,88 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <!-- Include SweetAlert2 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.3.4/dist/sweetalert2.min.js"></script>
     <script>
+
+
+
+// Password Strength Indicator
+document.getElementById('password').addEventListener('input', function() {
+    var password = this.value;
+    var strengthBar = document.getElementById('strength-bar');
+    var strengthText = document.getElementById('strength-text');
+    var strength = 0;
+
+    // Check password strength
+    if (password.length >= 8) {
+        strength += 25; // Length check
+    }
+    if (/[A-Z]/.test(password)) {
+        strength += 25; // Uppercase check
+    }
+    if (/[a-z]/.test(password)) {
+        strength += 25; // Lowercase check
+    }
+    if (/\d/.test(password)) {
+        strength += 25; // Number check
+    }
+
+    // Update the password strength bar and text
+    strengthBar.style.width = strength + '%';
+    strengthBar.setAttribute('aria-valuenow', strength);
+
+    if (strength < 25) {
+        strengthText.textContent = 'Poor';
+        strengthBar.className = 'progress-bar bg-danger';
+    } else if (strength < 50) {
+        strengthText.textContent = 'Weak';
+        strengthBar.className = 'progress-bar bg-warning';
+    } else if (strength < 75) {
+        strengthText.textContent = 'Fair';
+        strengthBar.className = 'progress-bar bg-info';
+    } else {
+        strengthText.textContent = 'Strong';
+        strengthBar.className = 'progress-bar bg-success';
+    }
+
+    // Match the password and confirm password
+    checkPasswordMatch();
+});
+
+// Confirm Password Strength Indicator
+document.getElementById('confirm_password').addEventListener('input', function() {
+    checkPasswordMatch();
+});
+
+// Function to check if password and confirm password match
+function checkPasswordMatch() {
+    var password = document.getElementById('password').value;
+    var confirmPassword = document.getElementById('confirm_password').value;
+    var confirmStrengthBar = document.getElementById('confirm-strength-bar');
+    var confirmStrengthText = document.getElementById('confirm-strength-text');
+
+    if (confirmPassword.length > 0) {
+        if (password === confirmPassword) {
+            confirmStrengthBar.style.width = '100%';
+            confirmStrengthBar.setAttribute('aria-valuenow', 100);
+            confirmStrengthText.textContent = 'Passwords Match';
+            confirmStrengthBar.className = 'progress-bar bg-success';
+        } else {
+            confirmStrengthBar.style.width = '50%';
+            confirmStrengthBar.setAttribute('aria-valuenow', 50);
+            confirmStrengthText.textContent = 'Passwords Do Not Match';
+            confirmStrengthBar.className = 'progress-bar bg-danger';
+        }
+    } else {
+        confirmStrengthBar.style.width = '0%';
+        confirmStrengthBar.setAttribute('aria-valuenow', 0);
+        confirmStrengthText.textContent = '';
+        confirmStrengthBar.className = 'progress-bar bg-light';
+    }
+}
+
 
 
 
@@ -448,135 +442,6 @@ document.getElementById('cp_number').addEventListener('input', function (e) {
 });
 
 
-
-
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('registerForm');
-
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                const formData = new FormData(form);
-
-                fetch('register.php', {
-                    method: 'POST',
-                    body: formData,
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text();
-                })
-                .then(result => {
-                    if (result === 'success') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            text: 'Registration successful!'
-                        }).then(() => {
-                            window.location.href = 'login.php'; // Redirect to login page
-                        });
-                    } else if (result === 'error_password') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Passwords do not match!'
-                        });
-                    } else if (result === 'error_email_exists') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Email already exists!'
-                        });
-                    } else if (result === 'error_required_fields') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'All fields are required!'
-                        });
-                    } else if (result === 'error_weak_password') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Password is too weak!'
-                        });
-                    } else if (result === 'error_file_upload') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'File upload error!'
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Registration failed!'
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Registration failed!'
-                    });
-                });
-            });
-        });
-
-
-
-
-
-        function assessPasswordStrength(password) {
-        let strength = 0;
-
-        // Check for various password strength criteria
-        if (password.length >= 8) strength++; // Length
-        if (/[A-Z]/.test(password)) strength++; // Uppercase letters
-        if (/[a-z]/.test(password)) strength++; // Lowercase letters
-        if (/\d/.test(password)) strength++; // Numbers
-        
-        // Check for special characters
-        if (/[@$!%*?&]/.test(password)) {
-            strength = 4; // Directly assign maximum strength if a special character is found
-        }
-
-        return strength;
-    }
-
-    document.getElementById('password').addEventListener('input', function() {
-        const password = this.value;
-        const strengthBar = document.getElementById('strength-bar');
-        const strengthText = document.getElementById('strength-text');
-        const strength = assessPasswordStrength(password);
-        
-        // Determine strength level and update the progress bar
-        switch (strength) {
-            case 0:
-            case 1:
-                strengthBar.style.width = '20%';
-                strengthBar.className = 'progress-bar weak';
-                strengthText.innerText = 'Weak';
-                break;
-            case 2:
-                strengthBar.style.width = '50%';
-                strengthBar.className = 'progress-bar medium';
-                strengthText.innerText = 'Medium';
-                break;
-            case 3:
-            case 4:
-                strengthBar.style.width = '100%';
-                strengthBar.className = 'progress-bar strong';
-                strengthText.innerText = 'Strong';
-                break;
-            default:
-                strengthBar.style.width = '0%';
-                strengthText.innerText = '';
-        }
-    });
     </script>
 </body>
 </html>

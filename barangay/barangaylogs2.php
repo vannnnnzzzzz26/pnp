@@ -226,7 +226,8 @@ try {
 
             $ano = htmlspecialchars($row['ano']);
             $barangay_saan = htmlspecialchars($row['barangay_saan']);
-            $kailan = htmlspecialchars($row['kailan']);
+            $kailan = htmlspecialchars($row['kailan_date']) . ' ' . htmlspecialchars($row['kailan_time']);
+
             $paano = htmlspecialchars($row['paano']);
             $bakit = htmlspecialchars($row['bakit']);
 
