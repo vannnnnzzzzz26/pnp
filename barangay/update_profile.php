@@ -11,6 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $cp_number = htmlspecialchars($_POST['cp_number']);
     $redirectTo = isset($_POST['redirect_to']) ? $_POST['redirect_to'] : 'pnp'; // Default to 'pnp'
 
+    $currentPassword = $_POST['current_password'] ?? '';
+    $newPassword = $_POST['new_password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+
     try {
         // Start the transaction
         $pdo->beginTransaction();
@@ -47,6 +51,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             } else {
                 throw new Exception("Invalid file type or size. Please upload a valid image (JPEG, PNG, GIF) no larger than 10MB.");
             }
+        }
+
+        // Password update logic
+        if (!empty($newPassword) && !empty($confirmPassword)) {
+            if ($newPassword !== $confirmPassword) {
+                throw new Exception("New passwords do not match.");
+            }
+
+            // Fetch current password from database
+            $stmt = $pdo->prepare("SELECT password FROM tbl_users WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user || !password_verify($currentPassword, $user['password'])) {
+                throw new Exception("Current password is incorrect.");
+            }
+
+            // Hash new password
+            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("UPDATE tbl_users SET password = ? WHERE user_id = ?");
+            $stmt->execute([$hashedPassword, $userId]);
         }
 
         // Commit the transaction

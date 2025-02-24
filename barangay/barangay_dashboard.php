@@ -287,6 +287,10 @@ margin-left: 5rem;
 }
    
 
+body{
+    background-color: #ffffff;
+}
+
     </style>
 </head>
 <body>

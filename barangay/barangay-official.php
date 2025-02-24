@@ -217,6 +217,9 @@ margin-left: 5rem;
             color: #ffffff;
             text-align: center;
         }
+        body{
+    background-color: #ffffff;
+}
 </style>
 <body>
 

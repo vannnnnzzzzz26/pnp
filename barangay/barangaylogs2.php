@@ -98,6 +98,11 @@ margin-left: 5rem;
             color: #ffffff;
             text-align: center;
         }
+
+
+        body{
+    background-color: #ffffff;
+}
       
     </style>
 </head>
@@ -117,53 +122,52 @@ include '../includes/edit-profile.php';
         
             <table class="table table-bordered table-hover">
             <thead>
-            <form method="POST">
-    <label class="form-label">Sort by Status:</label>
+           
+            <form method="GET">
+    <label class="form-label">Filter by Purok:</label>
+    <select id="purokDropdown" name="purok" onchange="this.form.submit()">
+        <option value="">All</option>
+        <?php
+        $stmtPurok = $pdo->query("SELECT DISTINCT purok FROM tbl_users WHERE purok IS NOT NULL ORDER BY purok");
+        while ($rowPurok = $stmtPurok->fetch(PDO::FETCH_ASSOC)) {
+            $selected = isset($_GET['purok']) && $_GET['purok'] == $rowPurok['purok'] ? 'selected' : '';
+            echo "<option value='{$rowPurok['purok']}' $selected>{$rowPurok['purok']}</option>";
+        }
+        ?>
+    </select>
+</form>
 
-
-    <select id="statusDropdown" name="status" onchange="handleStatusChange(this.value)">
-    <option value="">select</option>
-        <option value="Settled " 
-            <?php echo (isset($_GET['status']) && $_GET['status'] == 'Settled') ? 'selected' : ''; ?>>
-            Settled
-        </option>
-        <option value="Rejected" 
-            <?php echo (isset($_GET['status']) && $_GET['status'] == 'Rejected') ? 'selected' : ''; ?>>
-            Rejected
-        </option>
+   
+            <form id="statusForm" method="POST">
+    <label for="statusSelect" class="form-label"></label>
+    <select id="statusSelect" name="status" class="form-select form-select-sm" style="width: 150px;" required>
+        <option value="">-- Choose --</option>
+        <option value="settled">Settled</option>
+        <option value="rejected">Rejected</option>
     </select>
 </form>
 
 
 <script>
-function handleStatusChange(status) {
-    if (status === 'Settled') {
-        window.location.href = 'barangaylogs.php?status=' + status;
-    } else if (status === 'Rejected') {
-        window.location.href = 'barangaylogs2.php?status=' + status;
-    }
-}
+    document.getElementById("statusSelect").addEventListener("change", function() {
+        var selectedValue = this.value;
+        
+        if (selectedValue === "settled") {
+            window.location.href = "barangaylogs.php";
+        } else if (selectedValue === "rejected") {
+            window.location.href = "barangaylogs2.php";
+        }
+    });
 </script>
-
-
-<script>
-function handleStatusChange(status) {
-    if (status === 'Settled') {
-        window.location.href = 'barangaylogs.php';
-    } else if (status === 'Rejected') {
-        window.location.href = 'barangaylogs2.php';
-    }
-}
-</script>
-                        <tr>
-                            <th>#</th>
+                <tr>
+                        <th>#</th>
                             <th>Name</th>
                             <th>Date FIled</th>
-                            <th>Ano (What)</th>
-                            <th>Saan ( where)</th>
-                            <th>Kailan (When)</th>
-                            <th>Paano (How)</th>
-                            <th>BAkit (why)</th>
+                            <th> What</th>
+                            <th>  Where</th>
+                            <th> When</th>
+                            <th> How</th>
+                            <th> Why</th>
 
                           
                             <th>Barangay</th>

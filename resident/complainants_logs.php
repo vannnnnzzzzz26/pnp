@@ -132,12 +132,12 @@ include '../includes/resident-bar.php';
                                 <tr>
                                     <th>#</th> <!-- Row number -->
                                     <th scope="col">Complaint Name</th>
-                                    <th scope="col">date filed</th>
-                                    <th scope="col">Ano (What)</th>
-                                    <th scope="col">Saan (Where)</th>
-                                    <th scope="col">Kailan (When)</th>
-                                    <th scope="col">Paano (How)</th>
-                                    <th scope="col">Bakit (Why)</th>
+                                    <th scope="col">Date filed</th>
+                                    <th scope="col"> What</th>
+                                    <th scope="col"> Where</th>
+                                    <th scope="col"> When</th>
+                                    <th scope="col"> How</th>
+                                    <th scope="col"> Why</th>
                                     <th scope="col">View Details</th>
                                 </tr>
                             </thead>

@@ -58,14 +58,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         // Handle category
-        $other_category = isset($_POST['other-category']) ? htmlspecialchars($_POST['other-category']) : '';
-        if ($category === 'Other' && !empty($other_category)) {
-            $category = $other_category; 
-        }
+        // Handle category selection
+$other_category = isset($_POST['other-category']) ? htmlspecialchars($_POST['other-category']) : '';
 
-        // Set status and response values based on category
-        $status = ($category === 'Other') ? 'pnp' : 'inprogress';
-        $responds = ($category === 'Other') ? 'pnp' : '';
+if ($category === 'Other' && !empty($other_category)) {
+    $category = $other_category; 
+
+    // Since it's an "Other" category, force status and response to 'pnp'
+    $status = 'pnp';
+    $responds = 'pnp';
+
+    // Insert new category into the database if it doesn't already exist
+    $stmt = $pdo->prepare("SELECT category_id FROM tbl_complaintcategories WHERE complaints_category = ?");
+    $stmt->execute([$category]);
+    $category_id = $stmt->fetchColumn();
+
+    if (!$category_id) {
+        $stmt = $pdo->prepare("INSERT INTO tbl_complaintcategories (complaints_category) VALUES (?)");
+        $stmt->execute([$category]);
+        $category_id = $pdo->lastInsertId();
+    }
+} else {
+    // If a predefined category is chosen, keep the default behavior
+    $status = 'inprogress';
+    $responds = '';
+}
+
 
         // Insert into tbl_complaints
         $user_id = $_SESSION['user_id']; // Retrieve user_id from session
@@ -237,8 +255,8 @@ include '../includes/edit-profile.php';
           <!-- Complaint Information -->
           <div class="row">
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="complaints"><span class="text-danger">*</span> Complaint (Full Story):</label>
-              <textarea id="complaints" name="complaints" class="form-control" required></textarea>
+              <label for="complaints"><span class="text-danger">*</span> Complaint:</label>
+              <textarea id="complaints" name="complaints" class="form-control" placeholder="Tell the story from the beginning to the end" required></textarea>
             </div>
             <div class="col-lg-6 col-md-12 form-group">
               <label for="category"> <span class="text-danger">*</span> Category:</label>
@@ -328,7 +346,7 @@ include '../includes/edit-profile.php';
 <div class="row">
     <div class="col-lg-6 col-md-12 form-group">
         <label for="ano"><span class="text-danger">*</span> What Happened:</label>
-        <input type="text" name="ano" id="ano" class="form-control" required>
+        <input type="text" name="ano" id="ano" class="form-control" placeholder="A clear and consise description of the incident" required>
     </div>
 
     <div class="col-lg-6 col-md-12 form-group">
@@ -363,16 +381,16 @@ include '../includes/edit-profile.php';
         <label for="kailan_date"> <span class="text-danger">*</span> When did happen (date):</label>
         <input type="date" name="kailan_date" id="kailan_date" class="form-control" required>
         <label for="kailan_time"><span class="text-danger">*</span>  When did happen (time):</label>
-        <input type="time" name="kailan_time" id="kailan_time" class="form-control" required>
+        <input type="time" name="kailan_time" id="kailan_time" class="form-control" placeholder="time" required>
     </div>
     <div class="col-lg-6 col-md-12 form-group">
         <label for="paano"><span class="text-danger">*</span> How did happen:</label>
-        <textarea name="paano" id="paano" class="form-control" required></textarea>
+        <textarea name="paano" id="paano" class="form-control"  placeholder="Be detailed and factual. Include what you saw heard, and did"></textarea>
     </div>
 
     <div class="col-lg-6 col-md-12 form-group">
         <label for="bakit"><span class="text-danger">*</span> Why did it happen:</label>
-        <textarea name="bakit" id="bakit" class="form-control" required></textarea>
+        <textarea name="bakit" id="bakit" class="form-control" placeholder="If you have any information about the motive  behind the incident" required></textarea>
     </div>
 </div>
 

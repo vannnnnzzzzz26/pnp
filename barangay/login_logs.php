@@ -112,6 +112,12 @@ color: whitesmoke;
             color: #ffffff;
             text-align: center;
         }
+
+
+
+        body{
+    background-color: #ffffff;
+}
     </style>
     
     <?php 

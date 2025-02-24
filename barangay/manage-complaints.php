@@ -200,7 +200,9 @@ margin-left: 5rem;
             text-align: center;
         }
     
-
+body{
+    background-color: #ffffff;
+}
     </style>
 <body>
 <?php 
@@ -244,6 +246,7 @@ include '../includes/edit-profile.php';
      <form method="POST">
     <label class="form-label">Sort by Status:</label>
     <select id="statusDropdown" name="status" onchange="handleStatusChange(this.value)">
+        <option value="">select</option>
         <option value="Approved" 
             <?php echo (isset($_GET['status']) && $_GET['status'] == 'Approved') ? 'selected' : ''; ?>>
             Approved
@@ -273,11 +276,11 @@ function handleStatusChange(status) {
             <th style="text-align: left; vertical-align: middle;">Date Filed</th> <!-- Date filed aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Address</th> <!-- Barangay aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Purok</th> <!-- Purok aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Ano</th> <!-- Ano aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Saan</th> <!-- Saan aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Kailan</th> <!-- Kailan aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Paano</th> <!-- Paano aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Bakit</th> <!-- Bakit aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">What</th> <!-- Ano aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">Where</th> <!-- Saan aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">When</th> <!-- Kailan aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">How</th> <!-- Paano aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">Why</th> <!-- Bakit aligned to the left -->
             <th style="text-align: center; vertical-align: middle;">Action</th> <!-- Action button aligned to the center -->
         </tr>
     </thead>

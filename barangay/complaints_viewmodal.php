@@ -7,70 +7,71 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div style="display: flex; flex-wrap: wrap;">
-                    <!-- First Column -->
-                    <div style="flex: 1; min-width: 300px; padding-right: 20px;">
-                        <label><strong>Name:</strong></label>
-                        <input type="text" id="modal-name" class="form-control mb-2">
+            <div style="display: flex; flex-wrap: wrap;">
+    <!-- First Column -->
+    <div style="flex: 1; min-width: 300px; padding-right: 20px;">
+        <label><strong>Name:</strong></label>
+        <textarea id="modal-name" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Ano (What):</strong></label>
-                        <input type="text" id="modal-ano" class="form-control mb-2">
+        <label><strong>Ano (What):</strong></label>
+        <textarea id="modal-ano" class="form-control mb-2" rows="2"></textarea>
 
-                        <label><strong>Saan (Where):</strong></label>
-                        <input type="text" id="modal-saan" class="form-control mb-2">
+        <label><strong>Saan (Where):</strong></label>
+        <textarea id="modal-saan" class="form-control mb-2" rows="2"></textarea>
 
-                        <label><strong>Kailan (When):</strong></label>
-                        <input type="text" id="modal-kailan" class="form-control mb-2">
+        <label><strong>Kailan (When):</strong></label>
+        <textarea id="modal-kailan" class="form-control mb-2" rows="2"></textarea>
 
-                        <label><strong>Paano (How):</strong></label>
-                        <input type="text" id="modal-paano" class="form-control mb-2">
+        <label><strong>Paano (How):</strong></label>
+        <textarea id="modal-paano" class="form-control mb-2" rows="2"></textarea>
 
-                        <label><strong>Bakit (Why):</strong></label>
-                        <input type="text" id="modal-bakit" class="form-control mb-2">
+        <label><strong>Bakit (Why):</strong></label>
+        <textarea id="modal-bakit" class="form-control mb-2" rows="2"></textarea>
 
-                        <label><strong>Description:</strong></label>
-                        <input type="text" id="modal-description" class="form-control mb-2">
+        <label><strong>Description:</strong></label>
+        <textarea id="modal-description" class="form-control mb-2" rows="3"></textarea>
 
-                        <label><strong>Category:</strong></label>
-                        <input type="text" id="modal-category" class="form-control mb-2">
+        <label><strong>Category:</strong></label>
+        <textarea id="modal-category" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Barangay:</strong></label>
-                        <input type="text" id="modal-barangay" class="form-control mb-2">
-                    </div>
+        <label><strong>Barangay:</strong></label>
+        <textarea id="modal-barangay" class="form-control mb-2" rows="1"></textarea>
+    </div>
 
-                    <!-- Second Column -->
-                    <div style="flex: 1; min-width: 300px; padding-left: 20px;">
-                        <label><strong>Contact:</strong></label>
-                        <input type="text" id="modal-contact" class="form-control mb-2">
+    <!-- Second Column -->
+    <div style="flex: 1; min-width: 300px; padding-left: 20px;">
+        <label><strong>Contact:</strong></label>
+        <textarea id="modal-contact" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Person:</strong></label>
-                        <input type="text" id="modal-person" class="form-control mb-2">
+        <label><strong>Person:</strong></label>
+        <textarea id="modal-person" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Gender:</strong></label>
-                        <input type="text" id="modal-gender" class="form-control mb-2">
+        <label><strong>Gender:</strong></label>
+        <textarea id="modal-gender" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Birth Place:</strong></label>
-                        <input type="text" id="modal-birth_place" class="form-control mb-2">
+        <label><strong>Birth Place:</strong></label>
+        <textarea id="modal-birth_place" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Age:</strong></label>
-                        <input type="text" id="modal-age" class="form-control mb-2">
+        <label><strong>Age:</strong></label>
+        <textarea id="modal-age" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Education:</strong></label>
-                        <input type="text" id="modal-education" class="form-control mb-2">
+        <label><strong>Education:</strong></label>
+        <textarea id="modal-education" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Civil Status:</strong></label>
-                        <input type="text" id="modal-civil_status" class="form-control mb-2">
+        <label><strong>Civil Status:</strong></label>
+        <textarea id="modal-civil_status" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Date Filed:</strong></label>
-                        <input type="text" id="modal-date_filed" class="form-control mb-2">
+        <label><strong>Date Filed:</strong></label>
+        <textarea id="modal-date_filed" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Status:</strong></label>
-                        <input type="text" id="modal-status" class="form-control mb-2">
+        <label><strong>Status:</strong></label>
+        <textarea id="modal-status" class="form-control mb-2" rows="1"></textarea>
 
-                        <label><strong>Nationality:</strong></label>
-                        <input type="text" id="modal-nationality" class="form-control mb-2">
-                    </div>
-                </div>
+        <label><strong>Nationality:</strong></label>
+        <textarea id="modal-nationality" class="form-control mb-2" rows="1"></textarea>
+    </div>
+</div>
+
 
                 <!-- Certificate Section -->
                <!-- Certificate Section -->
