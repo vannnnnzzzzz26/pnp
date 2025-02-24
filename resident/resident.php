@@ -3,10 +3,7 @@ include '../connection/dbconn.php';
 include '../resident/notifications.php';
 
 
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../reg/login.php");
-    exit();
-}
+
 
 $firstName = $_SESSION['first_name'];
 $middleName = $_SESSION['middle_name'];
@@ -215,7 +212,7 @@ include '../includes/edit-profile.php';
               <p><?php echo htmlspecialchars("$firstName $middleName $lastName $extensionName"); ?></p>
             </div>
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="barangay">Barangay:</label>
+              <label for="barangay"><span class="text-danger">*</span> Address:</label>
               <?php 
                 include '../connection/dbconn.php'; 
                 try {
@@ -240,11 +237,11 @@ include '../includes/edit-profile.php';
           <!-- Complaint Information -->
           <div class="row">
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="complaints">Complaint:</label>
+              <label for="complaints"><span class="text-danger">*</span> Complaint (Full Story):</label>
               <textarea id="complaints" name="complaints" class="form-control" required></textarea>
             </div>
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="category">Category:</label>
+              <label for="category"> <span class="text-danger">*</span> Category:</label>
 <?php include 'category.php';
 ?>
            <button id="openModalButton" class="btn btn-primary">Viewn Category</button>
@@ -330,15 +327,16 @@ include '../includes/edit-profile.php';
 
 <div class="row">
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="ano">Ano (What):</label>
+        <label for="ano"><span class="text-danger">*</span> What Happened:</label>
         <input type="text" name="ano" id="ano" class="form-control" required>
     </div>
 
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="barangay_saan">Saan (Where):</label>
+        <label for="barangay_saan"> <span class="text-danger">*</span> Location of incident:</label>
     
 
         <select id="barangay_saan" name="barangay_saan" class="form-select" required>
+            
                         <?php
                         // Array of barangays of echague
                         $barangays = [
@@ -362,19 +360,18 @@ include '../includes/edit-profile.php';
     </div>
 
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="kailan_date">Kailan (When- date):</label>
+        <label for="kailan_date"> <span class="text-danger">*</span> When did happen (date):</label>
         <input type="date" name="kailan_date" id="kailan_date" class="form-control" required>
-        <label for="kailan_time">anong oras (When time):</label>
+        <label for="kailan_time"><span class="text-danger">*</span>  When did happen (time):</label>
         <input type="time" name="kailan_time" id="kailan_time" class="form-control" required>
-    </div>>
-
+    </div>
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="paano">Paano (How):</label>
+        <label for="paano"><span class="text-danger">*</span> How did happen:</label>
         <textarea name="paano" id="paano" class="form-control" required></textarea>
     </div>
 
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="bakit">Bakit (Why):</label>
+        <label for="bakit"><span class="text-danger">*</span> Why did it happen:</label>
         <textarea name="bakit" id="bakit" class="form-control" required></textarea>
     </div>
 </div>
@@ -384,11 +381,11 @@ include '../includes/edit-profile.php';
           <!-- Evidence and Complained Person -->
           <div class="row">
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="evidence">Upload Evidence:</label>
+              <label for="evidence"><span class="text-danger">*</span> Upload Evidence:</label>
               <input type="file" id="evidence" name="evidence[]" class="form-control" multiple required>
             </div>
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="complaints_person">Person Involved :</label>
+              <label for="complaints_person"><span class="text-danger">*</span> Person Involved :</label>
               <input type="text" id="complaints_person" name="complaints_person" class="form-control" required>
             </div>
           </div>

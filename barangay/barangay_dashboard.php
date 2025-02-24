@@ -8,7 +8,7 @@ $firstName = $_SESSION['first_name'] ?? '';
 $middleName = $_SESSION['middle_name'] ?? '';
 $lastName = $_SESSION['last_name'] ?? '';
 $extensionName = $_SESSION['extension_name'] ?? '';
-$email = $_SESSION['email'] ?? '';
+$cp_number = $_SESSION['cp_number'] ?? '';
 $barangay_name = $_SESSION['barangay_name'] ?? '';
 $barangay_saan = $_SESSION['barangay_saan'] ?? '';
 $pic_data = $_SESSION['pic_data'] ?? '';
@@ -424,6 +424,7 @@ include '../includes/edit-profile.php';
     </div>
 </div>
 
+<div id="notificationCard" class="card d-none" style="position: absolute; top: 50px; right: 10px; width: 300px; z-index: 1050;"></div>
 
 
 <script>
@@ -579,6 +580,118 @@ document.getElementById('purokMaxInfo').textContent = `${purokDataLabels[maxPuro
     document.getElementById('topCategoryInfo').textContent = `${topCategoryLabels[maxTopCategoryIndex]}: ${((maxTopCategoryValue / totalTopCategoryCount) * 100).toFixed(1)}%`;
 });
 
+
+
+
+
+
+
+
+
+
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    const notificationButton = document.getElementById('notificationButton');
+    const notificationCountBadge = document.getElementById('notificationCount');
+    const notificationCard = document.getElementById('notificationCard');
+
+    // Toggle the notification card
+    notificationButton.addEventListener('click', function () {
+        notificationCard.classList.toggle('d-none');
+    });
+
+    // Fetch notifications
+    function fetchNotifications() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Filter out notifications with 'Settled in Barangay' and 'Settled in PNP'
+                const filteredNotifications = data.notifications.filter(notification => 
+                    notification.status !== 'Settled in Barangay' && notification.status !== 'Settled in PNP'
+                );
+
+                const notificationCount = filteredNotifications.length;
+
+                if (notificationCount > 0) {
+                    notificationCountBadge.textContent = notificationCount;
+                    notificationCountBadge.classList.remove('d-none');
+                } else {
+                    notificationCountBadge.textContent = "0";
+                    notificationCountBadge.classList.add('d-none');
+                }
+
+                let notificationListHtml = '<div class="card-header">Notifications</div><div class="card-body" style="max-height: 300px; overflow-y: auto;">';
+
+                if (notificationCount > 0) {
+                    filteredNotifications.slice(0, 5).forEach(notification => {
+                        notificationListHtml += `
+                            <div class="card-text border-bottom p-2">
+                                <strong>Complaint:</strong> <a href="barangaylogs.php?complaint=${encodeURIComponent(notification.complaint_name)}&barangay=${encodeURIComponent(notification.barangay_name)}&status=${encodeURIComponent(notification.status)}">${notification.complaint_name}</a><br>
+                                <strong>Barangay:</strong> ${notification.barangay_name}<br>
+                                <strong>Status:</strong> ${notification.status}
+                            </div>`;
+                    });
+                } else {
+                    notificationListHtml += '<div class="text-center">No new notifications</div>';
+                }
+
+                notificationListHtml += '</div>';
+                notificationCard.innerHTML = notificationListHtml;
+
+            } else {
+                console.error("Failed to fetch notifications");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching notifications:", error);
+        });
+    }
+
+    // Initial fetch
+    fetchNotifications();
+
+    // Refresh notifications every 30 seconds
+    setInterval(fetchNotifications, 30000);
+
+    // Mark notifications as read when the button is clicked
+    notificationButton.addEventListener('click', function () {
+        markNotificationsAsRead();
+    });
+
+    function markNotificationsAsRead() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ markAsRead: true })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                notificationCountBadge.classList.add('d-none');
+            } else {
+                console.error("Failed to mark notifications as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+});
 
 function confirmLogout() {
     Swal.fire({

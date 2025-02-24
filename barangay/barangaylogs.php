@@ -13,7 +13,7 @@ $firstName = $_SESSION['first_name'];
 $middleName = $_SESSION['middle_name'];
 $lastName = $_SESSION['last_name'];
 $extensionName = isset($_SESSION['extension_name']) ? $_SESSION['extension_name'] : '';
-$email = isset($_SESSION['email']) ? $_SESSION['email'] : '';
+$cp_number = isset($_SESSION['cp_number']) ? $_SESSION['cp_number'] : '';
 $barangay = isset($_SESSION['barangays_id']) ? $_SESSION['barangays_id'] : '';
 $pic_data = isset($_SESSION['pic_data']) ? $_SESSION['pic_data'] : '';
 $birth_date = isset($_SESSION['birth_date']) ? $_SESSION['birth_date'] : '';
@@ -346,6 +346,7 @@ $total_pages = ceil($total_results / $results_per_page);
         </div>
     </div>
   
+    <div id="notificationCard" class="card d-none" style="position: absolute; top: 50px; right: 10px; width: 300px; z-index: 1050;"></div>
 
 
     <script src="../scripts/script.js"></script>
@@ -426,74 +427,65 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-
-    
 document.addEventListener("DOMContentLoaded", function () {
     const notificationButton = document.getElementById('notificationButton');
-    const modalBody = document.getElementById('notificationModalBody');
+    const notificationCountBadge = document.getElementById('notificationCount');
+    const notificationCard = document.getElementById('notificationCard');
 
+    // Toggle the notification card
+    notificationButton.addEventListener('click', function () {
+        notificationCard.classList.toggle('d-none');
+    });
+
+    // Fetch notifications
     function fetchNotifications() {
-        return fetch('notifications.php', {
+        fetch('notifications.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json().catch(() => ({ success: false }))) // Handle JSON parsing errors
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
-                const notificationCount = data.notifications.length;
-                const notificationCountBadge = document.getElementById("notificationCount");
+                // Filter out notifications with 'Settled in Barangay' and 'Settled in PNP'
+                const filteredNotifications = data.notifications.filter(notification => 
+                    notification.status !== 'Settled in Barangay' && notification.status !== 'Settled in PNP'
+                );
+
+                const notificationCount = filteredNotifications.length;
 
                 if (notificationCount > 0) {
                     notificationCountBadge.textContent = notificationCount;
-                    notificationCountBadge.classList.remove("d-none");
+                    notificationCountBadge.classList.remove('d-none');
                 } else {
                     notificationCountBadge.textContent = "0";
-                    notificationCountBadge.classList.add("d-none");
+                    notificationCountBadge.classList.add('d-none');
                 }
 
-                let notificationListHtml = '';
+                let notificationListHtml = '<div class="card-header">Notifications</div><div class="card-body" style="max-height: 300px; overflow-y: auto;">';
+
                 if (notificationCount > 0) {
-                    data.notifications.forEach(notification => {
+                    filteredNotifications.slice(0, 5).forEach(notification => {
                         notificationListHtml += `
-                            <div class="dropdown-item" 
-                                 data-id="${notification.complaints_id}" 
-                                 data-status="${notification.status}" 
-                                 data-complaint-name="${notification.complaint_name}" 
-                                 data-barangay-name="${notification.barangay_name}">
-                                Complaint: ${notification.complaint_name}<br>
-                                Barangay: ${notification.barangay_name}<br>
-                                Status: ${notification.status}
-                                 <hr>
-                            </div>
-                        `;
+                            <div class="card-text border-bottom p-2">
+                                <strong>Complaint:</strong> <a href="barangaylogs.php?complaint=${encodeURIComponent(notification.complaint_name)}&barangay=${encodeURIComponent(notification.barangay_name)}&status=${encodeURIComponent(notification.status)}">${notification.complaint_name}</a><br>
+                                <strong>Barangay:</strong> ${notification.barangay_name}<br>
+                                <strong>Status:</strong> ${notification.status}
+                            </div>`;
                     });
                 } else {
-                    notificationListHtml = '<div class="dropdown-item text-center">No new notifications</div>';
+                    notificationListHtml += '<div class="text-center">No new notifications</div>';
                 }
 
-                const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
-                if (popoverInstance) {
-                    popoverInstance.setContent({
-                        '.popover-body': notificationListHtml
-                    });
-                } else {
-                    new bootstrap.Popover(notificationButton, {
-                        html: true,
-                        content: function () {
-                            return `<div class="popover-content">${notificationListHtml}</div>`;
-                        },
-                        container: 'body'
-                    });
-                }
+                notificationListHtml += '</div>';
+                notificationCard.innerHTML = notificationListHtml;
 
-                document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
-                    item.addEventListener('click', function () {
-                        const notificationId = this.getAttribute('data-id');
-                        markNotificationAsRead(notificationId);
-                    });
-                });
             } else {
                 console.error("Failed to fetch notifications");
             }
@@ -503,31 +495,14 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    function markNotificationAsRead(notificationId) {
-        fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notificationId: notificationId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Notification marked as read');
-                fetchNotifications(); // Refresh notifications
-            } else {
-                console.error("Failed to mark notification as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-
+    // Initial fetch
     fetchNotifications();
 
-    notificationButton.addEventListener('shown.bs.popover', function () {
+    // Refresh notifications every 30 seconds
+    setInterval(fetchNotifications, 30000);
+
+    // Mark notifications as read when the button is clicked
+    notificationButton.addEventListener('click', function () {
         markNotificationsAsRead();
     });
 
@@ -542,10 +517,7 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const badge = document.querySelector(".badge.bg-danger");
-                if (badge) {
-                    badge.classList.add("d-none");
-                }
+                notificationCountBadge.classList.add('d-none');
             } else {
                 console.error("Failed to mark notifications as read");
             }
@@ -555,6 +527,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 });
+
     </script>
 </body>
 </html>

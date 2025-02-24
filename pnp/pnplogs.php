@@ -412,6 +412,7 @@ include '../includes/pnp-bar.php';
             </div>
         </div>
     </div>
+    <div id="notificationCard" class="card d-none" style="position: absolute; top: 50px; right: 10px; width: 300px; z-index: 1050;"></div>
 
     <!-- jQuery and Bootstrap JS -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
@@ -423,6 +424,106 @@ include '../includes/pnp-bar.php';
     <!-- JavaScript to handle modal content dynamically -->
     <script>
 
+document.addEventListener("DOMContentLoaded", function () {
+    const notificationButton = document.getElementById('notificationButton');
+    const notificationCountBadge = document.getElementById('notificationCount');
+    const notificationCard = document.getElementById('notificationCard');
+
+    // Toggle the notification card
+    notificationButton.addEventListener('click', function () {
+        notificationCard.classList.toggle('d-none');
+    });
+
+    // Fetch notifications
+    function fetchNotifications() {
+        fetch('notifications.php', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Filter out notifications with 'Settled in Barangay' and 'Settled in PNP'
+                const filteredNotifications = data.notifications.filter(notification => 
+                    notification.status !== 'Settled in Barangay' && notification.status !== 'Settled in PNP'
+                );
+
+                const notificationCount = filteredNotifications.length;
+
+                if (notificationCount > 0) {
+                    notificationCountBadge.textContent = notificationCount;
+                    notificationCountBadge.classList.remove('d-none');
+                } else {
+                    notificationCountBadge.textContent = "0";
+                    notificationCountBadge.classList.add('d-none');
+                }
+
+                let notificationListHtml = '<div class="card-header">Notifications</div><div class="card-body" style="max-height: 300px; overflow-y: auto;">';
+
+                if (notificationCount > 0) {
+                    filteredNotifications.slice(0, 5).forEach(notification => {
+                        notificationListHtml += `
+                            <div class="card-text border-bottom p-2">
+                                <strong>Complaint:</strong> <a href="pnplogs.php?complaint=${encodeURIComponent(notification.complaint_name)}&barangay=${encodeURIComponent(notification.barangay_name)}&status=${encodeURIComponent(notification.status)}">${notification.complaint_name}</a><br>
+                                <strong>Barangay:</strong> ${notification.barangay_name}<br>
+                                <strong>Status:</strong> ${notification.status}
+                            </div>`;
+                    });
+                } else {
+                    notificationListHtml += '<div class="text-center">No new notifications</div>';
+                }
+
+                notificationListHtml += '</div>';
+                notificationCard.innerHTML = notificationListHtml;
+
+            } else {
+                console.error("Failed to fetch notifications");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching notifications:", error);
+        });
+    }
+
+    // Initial fetch
+    fetchNotifications();
+
+    // Refresh notifications every 30 seconds
+    setInterval(fetchNotifications, 30000);
+
+    // Mark notifications as read when the button is clicked
+    notificationButton.addEventListener('click', function () {
+        markNotificationsAsRead();
+    });
+
+    function markNotificationsAsRead() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ markAsRead: true })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                notificationCountBadge.classList.add('d-none');
+            } else {
+                console.error("Failed to mark notifications as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+});
 
 
 
@@ -542,96 +643,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
 
-        document.addEventListener("DOMContentLoaded", function () {
-    const notificationButton = document.getElementById('notificationButton');
-    const notificationCountBadge = document.getElementById("notificationCount");
-
-    function fetchNotifications() {
-        return fetch('notifications.php', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const notificationCount = data.notifications.length;
-                updateNotificationBadge(notificationCount);
-                updatePopoverContent(data.notifications);
-            } else {
-                console.error("Failed to fetch notifications");
-            }
-        })
-        .catch(error => {
-            console.error("Error fetching notifications:", error);
-        });
-    }
-
-    function updateNotificationBadge(count) {
-        notificationCountBadge.textContent = count > 0 ? count : "0";
-        notificationCountBadge.classList.toggle("d-none", count === 0);
-    }
-
-    function updatePopoverContent(notifications) {
-        let notificationListHtml = notifications.length > 0 ?
-            notifications.map(notification => `
-                <div class="dropdown-item" data-id="${notification.complaints_id}">
-                    Complaint: ${notification.complaint_name}<br>
-                    Barangay: ${notification.barangay_name}<br>
-                    Status: ${notification.status}
-                    <hr>
-                </div>
-            `).join('') :
-            '<div class="dropdown-item text-center">No new notifications</div>';
-
-        const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
-        if (popoverInstance) {
-            popoverInstance.setContent({ '.popover-body': notificationListHtml });
-        } else {
-            new bootstrap.Popover(notificationButton, {
-                html: true,
-                content: function () {
-                    return `<div class="popover-content">${notificationListHtml}</div>`;
-                },
-                container: 'body'
-            });
-        }
-
-        // Add click event listener to mark as read
-        document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
-            item.addEventListener('click', function () {
-                const notificationId = this.getAttribute('data-id');
-                markNotificationAsRead(notificationId);
-            });
-        });
-    }
-
-    function markNotificationAsRead(notificationId) {
-  
-        fetch('notifications.php?action=update', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notificationId, userId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                fetchNotifications(); // Refresh notifications
-            } else {
-                console.error("Failed to mark notification as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-
-    // Fetch notifications when the page loads
-    fetchNotifications();
-});
 
 
    

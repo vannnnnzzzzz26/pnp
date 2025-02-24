@@ -3,10 +3,7 @@ include '../connection/dbconn.php';
 include '../resident/notifications.php';
 
 
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../reg/login.php");
-    exit();
-}
+
 
 $firstName = $_SESSION['first_name'];
 $middleName = $_SESSION['middle_name'];
@@ -33,14 +30,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $barangay_saan = isset($_POST['barangay_saan']) ? htmlspecialchars($_POST['barangay_saan']) : '';
         
         // Get 'kailan' input and convert it to database-friendly datetime format
-        $kailan = isset($_POST['kailan']) ? htmlspecialchars($_POST['kailan']) : '';
-        $kailan_db_format = date('Y-m-d H:i:s', strtotime($kailan)); // Store as 'Y-m-d H:i:s'
+        $kailan_date = isset($_POST['kailan_date']) ? htmlspecialchars($_POST['kailan_date']) : '';
+        $kailan_time = isset($_POST['kailan_time']) ? htmlspecialchars($_POST['kailan_time']) : '';
+        $kailan_time_12hr = date("h:i:s A", strtotime($kailan_time)); // Convert to 12-hour format with AM/PM
 
         $paano = isset($_POST['paano']) ? htmlspecialchars($_POST['paano']) : '';
         $bakit = isset($_POST['bakit']) ? htmlspecialchars($_POST['bakit']) : '';
+        $cp_number = isset($_POST['cp_number']) ? htmlspecialchars($_POST['cp_number']) : '';
+        $purok = isset($_POST['purok']) ? htmlspecialchars($_POST['purok']) : '';
 
+        $civil_status = isset($_POST['civil_status']) ? htmlspecialchars($_POST['civil_status']) : '';
+        $age = isset($_POST['age']) ? htmlspecialchars($_POST['age']) : '';
+        $birth_date = isset($_POST['birth_date']) ? htmlspecialchars($_POST['birth_date']) : '';
+        $gender = isset($_POST['gender']) ? htmlspecialchars($_POST['gender']) : '';
+        $place_of_birth = isset($_POST['place_of_birth']) ? htmlspecialchars($_POST['place_of_birth']) : '';
+        $purok = isset($_POST['purok']) ? htmlspecialchars($_POST['purok']) : '';
+        $nationality  = isset($_POST['nationality']) ? htmlspecialchars($_POST['nationality ']) : '';
+
+        $educational_background = isset($_POST['educational_background']) ? htmlspecialchars($_POST['educational_background']) : '';
         $pdo->beginTransaction();
 
+  // Insert into tbl_info to store additional user information
+  $stmt = $pdo->prepare("INSERT INTO tbl_users (civil_status, age, birth_date, gender, place_of_birth, educational_background,purok,nationality) VALUES (?,?, ?, ?, ?, ?, ?,?,?)");
+  $stmt->execute([$cp_number, $civil_status, $age, $birth_date, $gender, $place_of_birth, $educational_background,$purok,$nationality ]);
+  $user_id = $pdo->lastInsertId();
         // Check category and insert new category if necessary
         $stmt = $pdo->prepare("SELECT category_id FROM tbl_complaintcategories WHERE complaints_category = ?");
         $stmt->execute([$category]);
@@ -76,15 +89,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         // Set status and response values based on category
-        $status = ($category === 'Other') ? 'pnp' : 'inprogress';
+        $status = ($category === 'Other') ? 'barangay' : 'Approved';
         $responds = ($category === 'Other') ? 'pnp' : '';
 
         // Insert into tbl_complaints
-        $user_id = $_SESSION['user_id']; // Retrieve user_id from session
+       $user_id = $_SESSION['user_id']; // Retrieve user_id from session
 
-        $stmt = $pdo->prepare("INSERT INTO tbl_complaints (complaint_name, complaints, date_filed, category_id, barangays_id, complaints_person, status, responds, ano, barangay_saan, kailan, paano, bakit, user_id) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$complaint_name, $complaints, $date_filed, $category_id, $barangays_id, $complaints_person, $status, $responds, $ano, $barangay_saan, $kailan_db_format, $paano, $bakit, $user_id]);
+        $stmt = $pdo->prepare("INSERT INTO tbl_complaints (complaint_name, complaints, date_filed, category_id, barangays_id, complaints_person, status, responds, ano, barangay_saan, kailan_date, kailan_time, paano, bakit, user_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+$stmt->execute([$complaint_name, $complaints, $date_filed, $category_id, $barangays_id, $complaints_person, $status, $responds, $ano, $barangay_saan, $kailan_date, $kailan_time_12hr, $paano, $bakit, $user_id]);
 
         $complaint_id = $pdo->lastInsertId();
 
@@ -107,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $pdo->commit();
 
         $_SESSION['success'] = true;
-        header("Location: manage-complaints.php ");
+        header("Location: barangay-responder.php ");
         exit();
 
 
@@ -202,37 +215,32 @@ h1{
       <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post" enctype="multipart/form-data" onsubmit="return onSubmitForm();">
         <div class="form-box">
           <!-- User Information -->
-          <div class="row">
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="complaint_name">Complaint name:</label>
-              <textarea id="complaint_name" name="complaint_name" class="form-control" required></textarea>
+          <div class="container">
+  <!-- First row with basic complaint details and barangay -->
+  <div class="row">
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="complaint_name">Complaint name:</label>
+      <textarea id="complaint_name" name="complaint_name" class="form-control" required></textarea>
+    </div>
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="barangay_name">Address:</label>
+      <textarea id="barangay_name" name="barangay_name" class="form-control" required></textarea>
+    </div>
+  </div>
 
-            </div>
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="barangay_name">Barangay:</label>
-              <textarea id="barangay_name" name="barangay_name" class="form-control" required></textarea>
-
-            </div>
-          </div>
-
-
-     
-
-          <!-- Complaint Information -->
-          <div class="row">
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="complaints">Complaint:</label>
-              <textarea id="complaints" name="complaints" class="form-control" required></textarea>
-            </div>
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="category">Category:</label>
-<?php include 'category.php';
-?>
-           <button id="openModalButton" class="btn btn-primary">Viewn Category</button>
-<br>
-              <select id="category" name="category" class="form-control" required>
-                <option value="">select</option>
-                <option value="Unlawful Use of Means of Publication and Unlawful Utterances (Art. 154)">Unlawful Use of Means of Publication and Unlawful Utterances (Art. 154)</option>
+  <!-- Second row with complaint information and category selection -->
+  <div class="row">
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="complaints">Complaint:</label>
+      <textarea id="complaints" name="complaints" class="form-control" required></textarea>
+    </div>
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="category">Category:</label>
+      <?php include 'category.php'; ?>
+      <button id="openModalButton" class="btn btn-primary">View Category</button><br>
+      <select id="category" name="category" class="form-control" required>
+        <option value="">Select</option>
+        <option value="Unlawful Use of Means of Publication and Unlawful Utterances (Art. 154)">Unlawful Use of Means of Publication and Unlawful Utterances (Art. 154)</option>
     <option value="Alarms and Scandals (Art. 155)">Alarms and Scandals (Art. 155)</option>
     <option value="Using False Certificates (Art. 175)">Using False Certificates (Art. 175)</option>
     <option value="Using Fictitious Names and Concealing True Names (Art. 178)">Using Fictitious Names and Concealing True Names (Art. 178)</option>
@@ -278,112 +286,145 @@ h1{
     <option value="Fencing of stolen properties if the property involved is not more than Php50.00 (P.D. 1612)">Fencing of stolen properties if the property involved is not more than Php50.00 (P.D. 1612)</option>
 
 
-                <option value="Other">Other</option>
-                                         
+        <option value="Other">Other</option>
+      </select>
+      <div id="other-category-group" style="display: none;">
+        <label for="other-category">Please specify:</label>
+        <input type="text" id="other-category" name="other-category" class="form-control" placeholder="Specify your complaint" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Third row with date and time information, "Ano" and "Barangay" fields -->
+  <div class="row">
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="ano">Ano (What):</label>
+      <input type="text" name="ano" id="ano" class="form-control" required>
+    </div>
     
-
-
-              </select>
-              <div id="other-category-group" style="display: none;">
-                <label for="other-category">Please specify:</label>
-                <input type="text" id="other-category" name="other-category" class="form-control" placeholder="Specify your complaint" />
-              </div>
-            </div>
-          </div>
-
-
-
-
-          <!-- Script for Other Category Toggle -->
-          <script>
-            document.getElementById('category').addEventListener('change', function() {
-              var otherCategoryGroup = document.getElementById('other-category-group');
-              if (this.value === 'Other') {
-                otherCategoryGroup.style.display = 'block';
-              } else {
-                otherCategoryGroup.style.display = 'none';
-                document.getElementById('other-category').value = ''; // Clear the input field
-              }
-            });
-          </script>
-
-
-
-<div class="row">
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="ano">Ano (What):</label>
-        <input type="text" name="ano" id="ano" class="form-control" required>
-    </div>
+      <label for="barangay_saan">Barangay:</label>
+      <textarea id="barangay_saan" name="barangay_saan" class="form-control" required></textarea>
 
+    </div>
+  </div>
+
+  <!-- Fourth row with date and time details -->
+  <div class="row">
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="barangay_saan">Saan (Where):</label>
-    
-
-        <select id="barangay_saan" name="barangay_saan" class="form-select" required>
-                        <?php
-                        // Array of barangays of echague
-                        $barangays = [
-                            "Angoluan", "Annafunan", "Arabiat", "Aromin", "Babaran", "Bacradal", "Benguet", "Buneg", "Busilelao", "Cabugao (Poblacion)",
-                            "Caniguing", "Carulay", "Castillo", "Dammang East", "Dammang West", "Diasan", "Dicaraoyan", "Dugayong", "Fugu", "Garit Norte",
-                            "Garit Sur", "Gucab", "Gumbauan", "Ipil", "Libertad", "Mabbayad", "Mabuhay", "Madadamian", "Magleticia", "Malibago", "Maligaya",
-                            "Malitao", "Narra", "Nilumisu", "Pag-asa", "Pangal Norte", "Pangal Sur", "Rumang-ay", "Salay", "Salvacion", "San Antonio Ugad",
-                            "San Antonio Minit", "San Carlos", "San Fabian", "San Felipe", "San Juan", "San Manuel (formerly Atelan)", "San Miguel", "San Salvador",
-                            "Santa Ana", "Santa Cruz", "Santa Maria", "Santa Monica", "Santo Domingo", "Silauan Sur (Poblacion)", "Silauan Norte (Poblacion)",
-                            "Sinabbaran", "Soyung (Poblacion)", "Taggappan (Poblacion)", "Villa Agullana", "Villa Concepcion", "Villa Cruz", "Villa Fabia",
-                            "Villa Gomez", "Villa Nuesa", "Villa Padian", "Villa Pereda", "Villa Quirino", "Villa Remedios", "Villa Serafica", "Villa Tanza",
-                            "Villa Verde", "Villa Vicenta", "Villa Ysmael (formerly T. Belen)"
-                        ];
-
-                        // Display barangays as options
-                        foreach ($barangays as $barangay) {
-                            echo "<option value=\"$barangay\">$barangay</option>";
-                        }
-                        ?>
-                    </select>
+      <label for="kailan_date">Kailan (When - date):</label>
+      <input type="date" name="kailan_date" id="kailan_date" class="form-control" required>
+      <label for="kailan_time">Anong oras (When time):</label>
+      <input type="time" name="kailan_time" id="kailan_time" class="form-control" required>
     </div>
+  </div>
 
+  <!-- Fifth row with "Paano" (How) and "Bakit" (Why) -->
+  <div class="row">
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="kailan">Kailan (When):</label>
-        <input type="datetime-local" name="kailan" id="kailan" class="form-control" required>
+      <label for="paano">Paano (How):</label>
+      <textarea name="paano" id="paano" class="form-control" required></textarea>
     </div>
-
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="paano">Paano (How):</label>
-        <textarea name="paano" id="paano" class="form-control" required></textarea>
+      <label for="bakit">Bakit (Why):</label>
+      <textarea name="bakit" id="bakit" class="form-control" required></textarea>
     </div>
+  </div>
 
+  <!-- Sixth row with evidence upload and person involved -->
+  <div class="row">
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="bakit">Bakit (Why):</label>
-        <textarea name="bakit" id="bakit" class="form-control" required></textarea>
+      <label for="evidence">Upload Evidence:</label>
+      <input type="file" id="evidence" name="evidence[]" class="form-control" multiple required>
     </div>
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="complaints_person">Person Involved:</label>
+      <input type="text" id="complaints_person" name="complaints_person" class="form-control" required>
+    </div>
+  </div>
+
+  <!-- Seventh row with Purok selection, contact, and nationality -->
+  <div class="row">
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="purok">Purok:</label>
+      <select name="purok" required>
+        <option value="">Select Purok</option>
+        <option value="Purok 1">Purok 1</option>
+        <option value="Purok 2">Purok 2</option>
+        <option value="Purok 3">Purok 3</option>
+        <option value="Purok 4">Purok 4</option>
+        <option value="Purok 5">Purok 5</option>
+        <option value="Purok 6">Purok 6</option>
+        <option value="Purok 7">Purok 7</option>
+      </select>
+    </div>
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="cp_number">CP Number:</label>
+      <input type="text" id="cp_number" name="cp_number" class="form-control" placeholder="Enter your number" required>
+    </div>
+  </div>
+
+  <!-- Eighth row with nationality and birth date -->
+  <div class="row">
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="nationality">Nationality/Citizenship:</label>
+      <input type="text" id="nationality" name="nationality" class="form-control" required>
+    </div>
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="birth_date">Birth Date:</label>
+      <input type="date" id="birth_date" name="birth_date" class="form-control" required>
+    </div>
+  </div>
+
+  <!-- Ninth row with gender and age -->
+  <div class="row">
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="gender">Gender:</label>
+      <select id="gender" name="gender" class="form-control" required>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+      </select>
+    </div>
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="age">Age:</label>
+      <input type="number" id="age" name="age" class="form-control" readonly>
+    </div>
+  </div>
+
+  <!-- Tenth row with place of birth and civil status -->
+  <div class="row">
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="place_of_birth">Place of Birth:</label>
+      <input type="text" id="place_of_birth" name="place_of_birth" class="form-control" required>
+    </div>
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="civil_status">Civil Status:</label>
+      <select id="civil_status" name="civil_status" class="form-control" required>
+        <option value="Single">Single</option>
+        <option value="Married">Married</option>
+        <option value="Live-in">Live-in</option>
+        <option value="Divorced">Divorced</option>
+        <option value="Widowed">Widowed</option>
+        <option value="Separated">Separated</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Eleventh row with educational background -->
+  <div class="row">
+    <div class="col-lg-6 col-md-12 form-group">
+      <label for="educational_background">Educational Attainment:</label>
+      <select id="educational_background" name="educational_background" class="form-control" required>
+        <option value="No Formal Education">No Formal Education</option>
+        <option value="Elementary">Elementary</option>
+        <option value="Highschool">Highschool</option>
+        <option value="College">College</option>
+        <option value="Post Graduate">Post Graduate</option>
+      </select>
+    </div>
+  </div>
 </div>
 
-
-
-          <!-- Evidence and Complained Person -->
-          <div class="row">
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="evidence">Upload Evidence:</label>
-              <input type="file" id="evidence" name="evidence[]" class="form-control" multiple required>
-            </div>
-            <div class="col-lg-6 col-md-12 form-group">
-              <label for="complaints_person">Person Involved :</label>
-              <input type="text" id="complaints_person" name="complaints_person" class="form-control" required>
-            </div>
-          </div>
-
-          <!-- Contact and Birth Information -->
- 
-
-          </div>
-
-          
-
-
-
-         
-
-          <!-- Educational Background and ID -->
      
           <!-- Submit Button -->
           <div class="row">
@@ -441,19 +482,7 @@ $(document).ready(function() {
 
 
         // Check if the session variable is set and show SweetAlert
-        <?php 
-        
-        if (isset($_SESSION['success'])): ?>
-            Swal.fire({
-                position: 'center',
-                icon: 'success',
-                title: 'Your complaint has been submitted',
-                showConfirmButton: false,
-                timer: 1500
-            });
-          
-            <?php unset($_SESSION['success']); ?>
-        <?php endif; ?>
+       
 
         function onSubmitForm() {
             // Check if image field is empty
@@ -509,6 +538,26 @@ $(document).ready(function() {
 
 
 
+
+            document.getElementById('birth_date').addEventListener('change', function() {
+    var birthDate = new Date(this.value);
+    var today = new Date();
+    var age = today.getFullYear() - birthDate.getFullYear();
+    var monthDifference = today.getMonth() - birthDate.getMonth();
+    
+    // Adjust the age if the birthday hasn't occurred yet this year
+    if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+
+    if (age < 18) {
+        alert("Age must be 18 or above.");
+        this.value = ''; // Clear the birth date field
+        document.getElementById('age').value = ''; // Clear the age field
+    } else {
+        document.getElementById('age').value = age; // Set the calculated age
+    }
+});
 
 
     

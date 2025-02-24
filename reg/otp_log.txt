@@ -1,0 +1,14 @@
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Response: {"number":["The number field is required."]}
+Sent to: 09278433509 | Response: [{"message_id":242018639,"user_id":48426,"user":"mlgaming142@gmail.com","account_id":48287,"account":"cop watch","recipient":"639278433509","message":"Your OTP code is: 640303","sender_name":"CopWatch","network":"Globe","status":"Pending","type":"Single","source":"Api","created_at":"2025-02-23 01:41:19","updated_at":"2025-02-23 01:41:19"}]
+Sent to: 09098003472 | Response: [{"message_id":242018815,"user_id":48426,"user":"mlgaming142@gmail.com","account_id":48287,"account":"cop watch","recipient":"639098003472","message":"Your OTP code is: 899252","sender_name":"CopWatch","network":"Smart","status":"Pending","type":"Single","source":"Api","created_at":"2025-02-23 01:51:58","updated_at":"2025-02-23 01:51:58"}]
+Sent to: 09098503472 | Response: [{"message_id":242018945,"user_id":48426,"user":"mlgaming142@gmail.com","account_id":48287,"account":"cop watch","recipient":"639098503472","message":"Your OTP code is: 127363","sender_name":"CopWatch","network":"Smart","status":"Pending","type":"Single","source":"Api","created_at":"2025-02-23 02:01:26","updated_at":"2025-02-23 02:01:26"}]

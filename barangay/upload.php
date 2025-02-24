@@ -1,83 +1,89 @@
 <?php
 require_once '../connection/dbconn.php'; // Include database connection
 
-// Check if the form is submitted and file is uploaded
-if (isset($_POST['submit'])) {
-    // Retrieve category_id dynamically (either from the form or session)
-    $categoryId = isset($_POST['category_id']) ? intval($_POST['category_id']) : null;
+// Check if complaint_name is passed via POST
+if (isset($_POST['complaint_name']) && !empty($_POST['complaint_name'])) {
+    $complaintName = trim($_POST['complaint_name']);  // Get complaint_name from POST parameter
+} else {
+    die("<script>alert('Complaint Name is missing.'); window.location.href = 'barangay-responder.php';</script>");
+}
 
-    // Validate that category_id is provided
-    if ($categoryId === null) {
-        echo "<script>
-                alert('Category ID is missing.');
-                window.location.href = 'barangay-responder.php';
-              </script>";
-        exit();
-    }
+// Ensure complaint_name exists in tbl_complaints and has approved status, then fetch complaints_id
+$stmt = $pdo->prepare("SELECT complaints_id FROM tbl_complaints WHERE complaint_name = :complaintName AND status = 'approved'");
+$stmt->bindParam(':complaintName', $complaintName, PDO::PARAM_STR);
+$stmt->execute();
 
-    // Check if a file was uploaded
-    if (isset($_FILES['cert_file']) && $_FILES['cert_file']['error'] == 0) {
-        $fileTmpPath = $_FILES['cert_file']['tmp_name'];
-        $fileName = $_FILES['cert_file']['name'];
-        $fileSize = $_FILES['cert_file']['size'];
-        $fileType = $_FILES['cert_file']['type'];
+// If complaint_name exists and status is 'approved', fetch complaints_id
+if ($stmt->rowCount() > 0) {
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $complaintsId = $row['complaints_id'];
+} else {
+    echo "<script>alert('Complaint Name does not exist or is not approved.'); window.location.href = 'barangay-responder.php';</script>";
+    exit();
+}
 
-        // Define allowed file types (PDF, JPG, PNG)
-        $allowedFileTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+// Process file upload if complaint_name exists and is approved
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES['cert_file']) && $_FILES['cert_file']['error'] == 0) {
+    $fileTmpPath = $_FILES['cert_file']['tmp_name'];
+    $fileName = $_FILES['cert_file']['name'];
+    $fileSize = $_FILES['cert_file']['size'];
+    $fileType = $_FILES['cert_file']['type'];
 
-        // Check file type
-        if (in_array($fileType, $allowedFileTypes)) {
-            $uploadDir = '../uploads/certificates/'; // Ensure correct path
+    // Allowed file types
+    $allowedFileTypes = ['application/pdf', 'image/jpeg', 'image/png'];
 
-            // Create upload directory if it doesn't exist
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
-            }
+    if (in_array($fileType, $allowedFileTypes)) {
+        // Define upload directory
+        $uploadDir = '../uploads/certificates/';
 
-            // Generate a unique file name to prevent conflicts
-            $newFileName = time() . '_' . basename($fileName);
-            $fileDest = $uploadDir . $newFileName;
+        // Create directory if it doesn't exist
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
 
-            // Move uploaded file to destination
-            if (move_uploaded_file($fileTmpPath, $fileDest)) {
-                try {
-                    // Insert file path and category_id into database (foreign key relation)
-                    $query = "INSERT INTO tbl_complaintcategories (category_id, cert_path) VALUES (:categoryId, :certPath)";
-                    $stmt = $pdo->prepare($query);
-                    $stmt->bindParam(':categoryId', $categoryId, PDO::PARAM_INT); // Use category_id from the form
-                    $stmt->bindParam(':certPath', $fileDest, PDO::PARAM_STR);
+        // Rename file to avoid duplicates
+        $newFileName = time() . '_' . basename($fileName);
+        $fileDest = $uploadDir . $newFileName;
 
-                    if ($stmt->execute()) {
-                        echo "<script>
-                                alert('File uploaded and saved successfully!');
-                                window.location.href = 'barangay-responder.php';
-                              </script>";
-                    } else {
-                        echo "<script>
-                                alert('Error saving file in database.');
-                                window.location.href = 'barangay-responder.php';
-                              </script>";
-                    }
-                } catch (PDOException $e) {
-                    die("Database error: " . $e->getMessage());
+        // Move uploaded file
+        if (move_uploaded_file($fileTmpPath, $fileDest)) {
+            try {
+                // Save to database (tbl_complaints_certificates)
+                $stmt = $pdo->prepare("INSERT INTO tbl_complaints_certificates (complaints_id, cert_path) 
+                                       VALUES (:complaintsId, :certPath)");
+                $stmt->bindParam(':complaintsId', $complaintsId, PDO::PARAM_INT);
+                $stmt->bindParam(':certPath', $fileDest, PDO::PARAM_STR);
+
+                if ($stmt->execute()) {
+                    echo "<script>
+                            alert('File uploaded successfully!');
+                            window.location.href = 'barangay-responder.php';
+                          </script>";
+                } else {
+                    echo "<script>
+                            alert('Database error while saving file.');
+                            window.location.href = 'barangay-responder.php';
+                          </script>";
                 }
-            } else {
-                echo "<script>
-                        alert('Error uploading file.');
-                        window.location.href = 'barangay-responder.php';
-                      </script>";
+            } catch (PDOException $e) {
+                die("Database error: " . $e->getMessage());
             }
         } else {
             echo "<script>
-                    alert('Only PDF, JPG, and PNG files are allowed.');
+                    alert('Error moving uploaded file.');
                     window.location.href = 'barangay-responder.php';
                   </script>";
         }
     } else {
         echo "<script>
-                alert('No file uploaded or an error occurred.');
+                alert('Only PDF, JPG, and PNG files are allowed.');
                 window.location.href = 'barangay-responder.php';
               </script>";
     }
+} else {
+    echo "<script>
+            alert('No file uploaded or an error occurred.');
+            window.location.href = 'barangay-responder.php';
+          </script>";
 }
 ?>

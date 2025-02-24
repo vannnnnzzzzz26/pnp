@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $_SESSION['middle_name'] = $middleName;
         $_SESSION['last_name'] = $lastName;
         $_SESSION['extension_name'] = $extensionName;
-        $_SESSION['email'] = $email;
+        $_SESSION['cp_number'] = $cp_number;
 
         // Redirect based on hidden field value
         switch ($redirectTo) {

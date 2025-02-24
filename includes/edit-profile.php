@@ -51,6 +51,11 @@
                         <label for="editProfilePic" class="form-label">Profile Picture</label>
                         <input type="file" class="form-control" id="editProfilePic" name="profile_pic">
                     </div>
+
+                    <div class="mb-3">
+                        <label for="editSelfiePath" class="form-label">Selfie Path</label>
+                        <input type="file" class="form-control" id="editSelfiePath" name="selfie_path">
+                    </div>
                     <button type="submit" class="btn btn-primary">Save changes</button>
                 </form>
             </div>

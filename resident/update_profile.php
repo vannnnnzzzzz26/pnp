@@ -17,15 +17,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // Start the transaction
         $pdo->beginTransaction();
 
-        // Fetch the current password hash from the database
-        $stmt = $pdo->prepare("SELECT password FROM tbl_users WHERE user_id = ?");
-        $stmt->execute([$userId]);
-        $user = $stmt->fetch();
-
-        if (!$user || !password_verify($currentPassword, $user['password'])) {
-            throw new Exception("Current password is incorrect.");
-        }
-
         // Update user details
         $stmt = $pdo->prepare("UPDATE tbl_users SET first_name = ?, middle_name = ?, last_name = ?, extension_name = ?, cp_number = ? WHERE user_id = ?");
         $stmt->execute([$firstName, $middleName, $lastName, $extensionName, $cp_number, $userId]);
@@ -36,13 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $fileType = mime_content_type($_FILES['profile_pic']['tmp_name']);
             $fileSize = $_FILES['profile_pic']['size'];
 
-            if (in_array($fileType, $allowedTypes) && $fileSize <= 2000000) { // 2MB limit
+            if (in_array($fileType, $allowedTypes) && $fileSize <= 10000000) { // 2MB limit
                 $profilePicFilename = basename($_FILES['profile_pic']['name']);
                 $profilePicPath = '../uploads/' . $profilePicFilename;
 
                 // Create 'uploads' directory if it doesn't exist
-                if (!file_exists('../uploads')) {
-                    mkdir('../uploads', 0777, true); // Create directory with full permissions
+                if (!file_exists('uploads')) {
+                    mkdir('uploads', 0777, true); // Create directory with full permissions
                 }
 
                 // Move uploaded file to 'uploads' directory
@@ -60,11 +51,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
 
-        // Update password if a new password is provided
-        if (!empty($newPassword)) {
-            $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("UPDATE tbl_users SET password = ? WHERE user_id = ?");
-            $stmt->execute([$newPasswordHash, $userId]);
+        // Handle selfie path update
+        if (isset($_FILES['selfie_path']) && $_FILES['selfie_path']['error'] == UPLOAD_ERR_OK) {
+            $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            $fileType = mime_content_type($_FILES['selfie_path']['tmp_name']);
+            $fileSize = $_FILES['selfie_path']['size'];
+
+            if (in_array($fileType, $allowedTypes) && $fileSize <= 10000000) { // 2MB limit
+                $selfieFilename = basename($_FILES['selfie_path']['name']);
+                $selfiePath = '../uploads/' . $selfieFilename;
+
+                // Create 'uploads' directory if it doesn't exist
+                if (!file_exists('uploads')) {
+                    mkdir('uploads', 0777, true); // Create directory with full permissions
+                }
+
+                // Move uploaded file to 'uploads' directory
+                if (move_uploaded_file($_FILES['selfie_path']['tmp_name'], $selfiePath)) {
+                    $stmt = $pdo->prepare("UPDATE tbl_users SET selfie_path = ? WHERE user_id = ?");
+                    $stmt->execute([$selfiePath, $userId]);
+
+                    // Update session variable
+                    $_SESSION['selfie_path'] = $selfiePath;
+                } else {
+                    throw new Exception("Failed to upload selfie.");
+                }
+            } else {
+                throw new Exception("Invalid file type or size. Please upload a valid image (JPEG, PNG, GIF) no larger than 2MB.");
+            }
         }
 
         // Commit the transaction
@@ -87,7 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 header("Location: complainant_logs.php");
                 break;
             case 'resident':
-         
                 header("Location: resident.php");
                 break;
         }
@@ -97,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $pdo->rollBack();
         $_SESSION['alert_message'] = "Database error: " . $e->getMessage();
         $_SESSION['alert_type'] = "error";
-  
+
     } catch (Exception $e) {
         $_SESSION['alert_message'] = "Error: " . $e->getMessage();
         $_SESSION['alert_type'] = "error";

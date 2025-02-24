@@ -6,6 +6,7 @@ session_start();
 include '../connection/dbconn.php'; 
 include '../includes/bypass.php';
 
+require_once( 'vendor/autoload.php' );
 
 $firstName = $_SESSION['first_name'];
 $middleName = $_SESSION['middle_name'];
@@ -30,7 +31,7 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
         SELECT c.*, 
                b.barangay_name, 
                cc.complaints_category,
-               cc.cert_path,
+               c_cert.cert_path,
                u.cp_number,          
                u.gender,            
                u.place_of_birth,    
@@ -40,18 +41,21 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
                u.civil_status,
                u.purok,
                GROUP_CONCAT(DISTINCT e.evidence_path SEPARATOR ',') AS evidence_paths,
-               GROUP_CONCAT(DISTINCT CONCAT(h.hearing_date, '|', h.hearing_time, '|', h.hearing_type, '|', h.hearing_status) SEPARATOR ',') AS hearing_history
+               GROUP_CONCAT(DISTINCT CONCAT(h.hearing_date, '|', h.hearing_time, '|', h.hearing_type, '|', h.hearing_status) SEPARATOR ',') AS hearing_history,
+               c_cert.cert_path AS certificate_path -- Add certificate path from tbl_complaints_certificates
         FROM tbl_complaints c
         JOIN tbl_users_barangay b ON c.barangays_id = b.barangays_id
         JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
         JOIN tbl_users u ON c.user_id = u.user_id  
         LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
         LEFT JOIN tbl_hearing_history h ON c.complaints_id = h.complaints_id
+        LEFT JOIN tbl_complaints_certificates c_cert ON c.complaints_id = c_cert.complaints_id -- Join with tbl_complaints_certificates
         WHERE c.status = 'Approved' AND c.barangay_saan = ?
         GROUP BY c.complaints_id
         ORDER BY c.date_filed DESC
         LIMIT ?, ?
     ");
+     
     
     
 
@@ -227,20 +231,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_hearing'])) {
     <link rel="stylesheet" type="text/css" href="../styles/style.css">
 </head>
 <style>
-.popover-content {
-    background-color: whitesmoke; 
-    
-    padding: 10px; /* Add some padding */
-    border: 1px solid #495057; /* Optional: border for better visibility */
-    border-radius: 5px; /* Optional: rounded corners */
-    max-height: 300px; /* Ensure it doesn't grow too large */
-    overflow-y: auto; /* Add vertical scroll if needed */
-}
-
-/* Adjust the arrow for the popover to ensure it points correctly */
-.popover .popover-arrow {
-    border-top-color: #343a40; /* Match the background color */
-}
 
 
 .sidebar-toggler {
@@ -354,7 +344,15 @@ function handleStatusChange(status) {
 
 
 
+<div style="width: 100%; text-align: center;">
+    <button onclick="window.location.href='add_walkin_page.php';" class="btn btn-primary">Add Walk-In</button>
+    <button onclick="window.location.href='cert.php';" class="btn btn-success">Make  certificate</button>
 
+</div >
+
+<div>
+</div >
+       
                 <tr>
                 <th style="text-align: center; vertical-align: middle;">#</th> <!-- Row number centered -->
             <th style="text-align: left; vertical-align: middle;">Complaint Name</th> <!-- Complaint name aligned to the left -->
@@ -484,6 +482,7 @@ include 'complaints_viewmodal.php';
 
 
 
+    <div id="notificationCard" class="card d-none" style="position: absolute; top: 50px; right: 10px; width: 300px; z-index: 1050;"></div>
 
 
 
@@ -523,86 +522,139 @@ function getCurrentDate() {
         });
     });
 
+
+    // Handle Move to PNP button click
     document.addEventListener('DOMContentLoaded', function() {
     const viewButtons = document.querySelectorAll('.view-details-btn');
+
     viewButtons.forEach(button => {
         button.addEventListener('click', function() {
-         // Populate modal with data
-document.getElementById('modal-name').value = this.dataset.name;
-document.getElementById('modal-ano').value = this.dataset.ano;
-document.getElementById('modal-saan').value = this.dataset.saan;
-document.getElementById('modal-kailan').value = this.dataset.kailan;
-document.getElementById('modal-paano').value = this.dataset.paano;
-document.getElementById('modal-bakit').value = this.dataset.bakit;
+            // Populate modal fields with dataset values
+            document.getElementById('modal-name').value = this.dataset.name;
+            document.getElementById('modal-ano').value = this.dataset.ano;
+            document.getElementById('modal-saan').value = this.dataset.saan;
+            document.getElementById('modal-kailan').value = this.dataset.kailan;
+            document.getElementById('modal-paano').value = this.dataset.paano;
+            document.getElementById('modal-bakit').value = this.dataset.bakit;
+            document.getElementById('modal-description').value = this.dataset.description;
+            document.getElementById('modal-category').value = this.dataset.category;
+            document.getElementById('modal-barangay').value = this.dataset.barangay;
+            document.getElementById('modal-contact').value = this.dataset.contact;
+            document.getElementById('modal-person').value = this.dataset.person;
+            document.getElementById('modal-gender').value = this.dataset.gender;
+            document.getElementById('modal-birth_place').value = this.dataset.birth_place;
+            document.getElementById('modal-age').value = this.dataset.age;
+            document.getElementById('modal-education').value = this.dataset.education;
+            document.getElementById('modal-civil_status').value = this.dataset.civil_status;
+            document.getElementById('modal-date_filed').value = this.dataset.date_filed;
+            document.getElementById('modal-status').value = this.dataset.status;
+            document.getElementById('modal-nationality').value = this.dataset.nationality;
 
-document.getElementById('modal-description').value = this.dataset.description;
-document.getElementById('modal-category').value = this.dataset.category;
-document.getElementById('modal-barangay').value = this.dataset.barangay;
-document.getElementById('modal-contact').value = this.dataset.contact;
-document.getElementById('modal-person').value = this.dataset.person;
-document.getElementById('modal-gender').value = this.dataset.gender;
-document.getElementById('modal-birth_place').value = this.dataset.birth_place;
-document.getElementById('modal-age').value = this.dataset.age;
-document.getElementById('modal-education').value = this.dataset.education;
-document.getElementById('modal-civil_status').value = this.dataset.civil_status;
-document.getElementById('modal-date_filed').value = this.dataset.date_filed;
-document.getElementById('modal-status').value = this.dataset.status;
-document.getElementById('modal-nationality').value = this.dataset.nationality;
-document.getElementById('modal-cert_path').value = this.dataset.cert_path;
-         
-
-            // Handle hearing history display
-            var hearingHistoryHtml = '';
+            // Handle Hearing History
+            let hearingHistoryHtml = '<h5>Hearing History:</h5>';
             if (this.dataset.hearing_history) {
-                var hearings = this.dataset.hearing_history.split(',');
-                hearingHistoryHtml = '<h5>Hearing History:</h5><table class="table"><thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Status</th></tr></thead><tbody>';
+                let hearings = this.dataset.hearing_history.split(',');
+                hearingHistoryHtml += '<table class="table"><thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Status</th></tr></thead><tbody>';
+                
                 hearings.forEach(function (hearing) {
-                    var details = hearing.split('|');
-                    hearingHistoryHtml += `
-                        <tr>
-                            <td>${details[0]}</td>
-                            <td>${details[1]}</td>
-                            <td>${details[2]}</td>
-                            <td>${details[3]}</td>
-                        </tr>
-                    `;
+                    let details = hearing.split('|');
+                    hearingHistoryHtml += `<tr>
+                        <td>${details[0]}</td>
+                        <td>${details[1]}</td>
+                        <td>${details[2]}</td>
+                        <td>${details[3]}</td>
+                    </tr>`;
                 });
+
                 hearingHistoryHtml += '</tbody></table>';
             } else {
-                hearingHistoryHtml = '<p>No hearing history available.</p>';
+                hearingHistoryHtml += '<p>No hearing history available.</p>';
             }
             document.getElementById('modalHearingHistorySection').innerHTML = hearingHistoryHtml;
 
-            // Handle evidence display
-            var evidenceHtml = '<h5>Evidence:</h5>';
+            // Handle Evidence Display
+            let evidenceHtml = '<h5>Evidence:</h5>';
             if (this.dataset.evidence_paths) {
-                var evidencePaths = this.dataset.evidence_paths.split(',').map(path => path.trim());
+                let evidencePaths = this.dataset.evidence_paths.split(',').map(path => path.trim());
                 if (evidencePaths.length > 0) {
                     evidenceHtml += '<ul>';
                     evidencePaths.forEach(function (path) {
-                        evidenceHtml += `<li><a href="../uploads/${path}" target="_blank">View Evidence</a></li>`;
+                        let fileExtension = path.split('.').pop().toLowerCase();
+                        if (fileExtension === 'pdf') {
+                            evidenceHtml += `<li><a href="../uploads/${path}" target="_blank">View Evidence (PDF)</a></li>`;
+                        } else {
+                            evidenceHtml += `<li><a href="../uploads/${path}" target="_blank">View Evidence</a></li>`;
+                        }
                     });
                     evidenceHtml += '</ul>';
                 } else {
                     evidenceHtml += '<p>No evidence available.</p>';
                 }
-                document.getElementById('modalEvidenceSection').style.display = 'block';
             } else {
                 evidenceHtml += '<p>No evidence available.</p>';
-                document.getElementById('modalEvidenceSection').style.display = 'block';
             }
             document.getElementById('modalEvidenceSection').innerHTML = evidenceHtml;
 
-            // Store the complaint ID in the modal for use later
+            // Handle Certificate Display
+            let certPath = this.dataset.cert_path;
+            let certContainer = document.getElementById('modalCertificateSection');
+            let certImg = document.getElementById('modal-cert_path');
+
+            if (certPath) {
+                let fileExtension = certPath.split('.').pop().toLowerCase();
+                let imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+
+                if (imageExtensions.includes(fileExtension)) {
+                    certContainer.innerHTML = `<img src="../uploads/${certPath}" 
+                        alt="Certificate" 
+                        style="max-width: 40%; height: auto; cursor: pointer;" 
+                        onclick="viewFile('../uploads/${certPath}', 'image')">`;
+                    certImg.style.display = 'block';
+                } else if (fileExtension === 'pdf') {
+                    certContainer.innerHTML = `<a href="#" onclick="viewFile('../uploads/${certPath}', 'pdf')">View Certificate (PDF)</a>`;
+                    certImg.style.display = 'none';
+                } else {
+                    certContainer.innerHTML = `<a href="../uploads/${certPath}" download>Download Certificate</a>`;
+                    certImg.style.display = 'none';
+                }
+            } else {
+                certContainer.innerHTML = "<p>No certificate uploaded.</p>";
+            }
+
+            // Store the complaint ID in the modal
             document.getElementById('complaintModal').setAttribute('data-complaint-id', this.dataset.id);
         });
     });
-
-
-
-    // Handle Move to PNP button click
-   
 });
+
+// Function to view files (images and PDFs)
+function viewFile(filePath, type) {
+    let viewerModal = document.getElementById('fileViewerModal');
+    let viewerContent = document.getElementById('fileViewerContent');
+
+    if (type === 'image') {
+        viewerContent.innerHTML = `<img src="${filePath}" style="max-width: 100%; height: auto;">`;
+    } else if (type === 'pdf') {
+        viewerContent.innerHTML = `<iframe src="${filePath}" style="width: 100%; height: 600px;"></iframe>`;
+    }
+
+    // Manually show the modal using Bootstrap's modal method
+    $(viewerModal).modal('show');
+}
+
+
+function closeFileViewer() {
+    let viewerModal = document.getElementById('fileViewerModal');
+    let viewerContent = document.getElementById('fileViewerContent');
+
+    // Clear the content of the modal to avoid lingering data
+    viewerContent.innerHTML = '';
+
+    // Close the modal using Bootstrap's modal method
+    $(viewerModal).modal('hide');
+}
+
+
 
 document.addEventListener('DOMContentLoaded', function() {
     const moveToPnpBtn = document.getElementById('moveToPnpBtn');
@@ -694,7 +746,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function setHearingDetails() {
-        const complaintId = document.getElementById('viewComplaintModal').getAttribute('data-complaint-id');
+        const complaintId = document.getElementById('viewsComplaintModal').getAttribute('data-complaint-id');
         const hearingDate = document.getElementById('hearing-date').value;
         const hearingTime = document.getElementById('hearing-time').value;
         const hearingType = document.getElementById('hearing-type').value;
@@ -719,134 +771,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-
-document.addEventListener("DOMContentLoaded", function () {
-    const notificationButton = document.getElementById('notificationButton');
-    const modalBody = document.getElementById('notificationModalBody');
-
-    function fetchNotifications() {
-        return fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json().catch(() => ({ success: false }))) // Handle JSON parsing errors
-        .then(data => {
-            if (data.success) {
-                const notificationCount = data.notifications.length;
-                const notificationCountBadge = document.getElementById("notificationCount");
-
-                if (notificationCount > 0) {
-                    notificationCountBadge.textContent = notificationCount;
-                    notificationCountBadge.classList.remove("d-none");
-                } else {
-                    notificationCountBadge.textContent = "0";
-                    notificationCountBadge.classList.add("d-none");
-                }
-
-                let notificationListHtml = '';
-                if (notificationCount > 0) {
-                    data.notifications.forEach(notification => {
-                        notificationListHtml += `
-                            <div class="dropdown-item" 
-                                 data-id="${notification.complaints_id}" 
-                                 data-status="${notification.status}" 
-                                 data-complaint-name="${notification.complaint_name}" 
-                                 data-barangay-name="${notification.barangay_name}">
-                                Complaint: ${notification.complaint_name}<br>
-                                Barangay: ${notification.barangay_name}<br>
-                                Status: ${notification.status}
-                                <hr>
-                            </div>
-                        `;
-                    });
-                } else {
-                    notificationListHtml = '<div class="dropdown-item text-center">No new notifications</div>';
-                }
-
-                const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
-                if (popoverInstance) {
-                    popoverInstance.setContent({
-                        '.popover-body': notificationListHtml
-                    });
-                } else {
-                    new bootstrap.Popover(notificationButton, {
-                        html: true,
-                        content: function () {
-                            return `<div class="popover-content">${notificationListHtml}</div>`;
-                        },
-                        container: 'body'
-                    });
-                }
-
-                document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
-                    item.addEventListener('click', function () {
-                        const notificationId = this.getAttribute('data-id');
-                        markNotificationAsRead(notificationId);
-                    });
-                });
-            } else {
-                console.error("Failed to fetch notifications");
-            }
-        })
-        .catch(error => {
-            console.error("Error fetching notifications:", error);
-        });
-    }
-
-    function markNotificationAsRead(notificationId) {
-        fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notificationId: notificationId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Notification marked as read');
-                fetchNotifications(); // Refresh notifications
-            } else {
-                console.error("Failed to mark notification as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-
-    fetchNotifications();
-
-    notificationButton.addEventListener('shown.bs.popover', function () {
-        markNotificationsAsRead();
-    });
-
-    function markNotificationsAsRead() {
-        fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ markAsRead: true })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const badge = document.querySelector(".badge.bg-danger");
-                if (badge) {
-                    badge.classList.add("d-none");
-                }
-            } else {
-                console.error("Failed to mark notifications as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-});
 
 
 
@@ -884,6 +808,114 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
+
+
+
+
+
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    const notificationButton = document.getElementById('notificationButton');
+    const notificationCountBadge = document.getElementById('notificationCount');
+    const notificationCard = document.getElementById('notificationCard');
+
+    // Toggle the notification card
+    notificationButton.addEventListener('click', function () {
+        notificationCard.classList.toggle('d-none');
+    });
+
+    // Fetch notifications
+    function fetchNotifications() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Filter out notifications with 'Settled in Barangay' and 'Settled in PNP'
+                const filteredNotifications = data.notifications.filter(notification => 
+                    notification.status !== 'Settled in Barangay' && notification.status !== 'Settled in PNP'
+                );
+
+                const notificationCount = filteredNotifications.length;
+
+                if (notificationCount > 0) {
+                    notificationCountBadge.textContent = notificationCount;
+                    notificationCountBadge.classList.remove('d-none');
+                } else {
+                    notificationCountBadge.textContent = "0";
+                    notificationCountBadge.classList.add('d-none');
+                }
+
+                let notificationListHtml = '<div class="card-header">Notifications</div><div class="card-body" style="max-height: 300px; overflow-y: auto;">';
+
+                if (notificationCount > 0) {
+                    filteredNotifications.slice(0, 5).forEach(notification => {
+                        notificationListHtml += `
+                            <div class="card-text border-bottom p-2">
+                                <strong>Complaint:</strong> <a href="barangaylogs.php?complaint=${encodeURIComponent(notification.complaint_name)}&barangay=${encodeURIComponent(notification.barangay_name)}&status=${encodeURIComponent(notification.status)}">${notification.complaint_name}</a><br>
+                                <strong>Barangay:</strong> ${notification.barangay_name}<br>
+                                <strong>Status:</strong> ${notification.status}
+                            </div>`;
+                    });
+                } else {
+                    notificationListHtml += '<div class="text-center">No new notifications</div>';
+                }
+
+                notificationListHtml += '</div>';
+                notificationCard.innerHTML = notificationListHtml;
+
+            } else {
+                console.error("Failed to fetch notifications");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching notifications:", error);
+        });
+    }
+
+    // Initial fetch
+    fetchNotifications();
+
+    // Refresh notifications every 30 seconds
+    setInterval(fetchNotifications, 30000);
+
+    // Mark notifications as read when the button is clicked
+    notificationButton.addEventListener('click', function () {
+        markNotificationsAsRead();
+    });
+
+    function markNotificationsAsRead() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ markAsRead: true })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                notificationCountBadge.classList.add('d-none');
+            } else {
+                console.error("Failed to mark notifications as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+});
 function confirmLogout() {
         Swal.fire({
             title: "Are you sure?",
@@ -901,6 +933,24 @@ function confirmLogout() {
         });
 
     }
+
+
+
+     // Check if the session variable is set and show SweetAlert
+     <?php 
+        
+        if (isset($_SESSION['success'])): ?>
+            Swal.fire({
+                position: 'center',
+                icon: 'success',
+                title: 'Your complaint has been submitted',
+                showConfirmButton: false,
+                timer: 1500
+            });
+          
+            <?php unset($_SESSION['success']); ?>
+        <?php endif; ?>
+
 
 
     </script>
