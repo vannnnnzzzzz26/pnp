@@ -8,16 +8,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $middleName = htmlspecialchars($_POST['middle_name']);
     $lastName = htmlspecialchars($_POST['last_name']);
     $extensionName = htmlspecialchars($_POST['extension_name']);
-    $email = htmlspecialchars($_POST['email']);
+    $cp_number = htmlspecialchars($_POST['cp_number']);
     $redirectTo = isset($_POST['redirect_to']) ? $_POST['redirect_to'] : 'pnp'; // Default to 'pnp'
+
+    $currentPassword = $_POST['current_password'] ?? '';
+    $newPassword = $_POST['new_password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
 
     try {
         // Start the transaction
         $pdo->beginTransaction();
 
         // Update user details
-        $stmt = $pdo->prepare("UPDATE tbl_users SET first_name = ?, middle_name = ?, last_name = ?, extension_name = ?, email = ? WHERE user_id = ?");
-        $stmt->execute([$firstName, $middleName, $lastName, $extensionName, $email, $userId]);
+        $stmt = $pdo->prepare("UPDATE tbl_users SET first_name = ?, middle_name = ?, last_name = ?, extension_name = ?, cp_number = ? WHERE user_id = ?");
+        $stmt->execute([$firstName, $middleName, $lastName, $extensionName, $cp_number, $userId]);
 
         // Handle profile picture update
         if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] == UPLOAD_ERR_OK) {
@@ -30,8 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $profilePicPath = '../uploads/' . $profilePicFilename;
 
                 // Create 'uploads' directory if it doesn't exist
-                if (!file_exists('uploads')) {
-                    mkdir('uploads', 0777, true); // Create directory with full permissions
+                if (!file_exists('../uploads')) {
+                    mkdir('../uploads', 0777, true); // Create directory with full permissions
                 }
 
                 // Move uploaded file to 'uploads' directory
@@ -49,6 +53,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
 
+        // Password update logic
+        if (!empty($newPassword) && !empty($confirmPassword)) {
+            if ($newPassword !== $confirmPassword) {
+                throw new Exception("New passwords do not match.");
+            }
+
+            // Fetch current password from database
+            $stmt = $pdo->prepare("SELECT password FROM tbl_users WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user || !password_verify($currentPassword, $user['password'])) {
+                throw new Exception("Current password is incorrect.");
+            }
+
+            // Hash new password
+            $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("UPDATE tbl_users SET password = ? WHERE user_id = ?");
+            $stmt->execute([$hashedPassword, $userId]);
+        }
+
         // Commit the transaction
         $pdo->commit();
 
@@ -57,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $_SESSION['middle_name'] = $middleName;
         $_SESSION['last_name'] = $lastName;
         $_SESSION['extension_name'] = $extensionName;
-        $_SESSION['email'] = $email;
+        $_SESSION['cp_number'] = $cp_number;
 
         // Redirect based on hidden field value
         switch ($redirectTo) {

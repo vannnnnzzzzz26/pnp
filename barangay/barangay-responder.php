@@ -6,13 +6,7 @@ session_start();
 include '../connection/dbconn.php'; 
 include '../includes/bypass.php';
 
-
-// Fetch barangay name if not already set in session
-if (!isset($_SESSION['barangay_name']) && isset($_SESSION['barangays_id'])) {
-    $stmt = $pdo->prepare("SELECT barangay_name FROM tbl_users_barangay WHERE barangays_id = ?");
-    $stmt->execute([$_SESSION['barangays_id']]);
-    $_SESSION['barangay_name'] = $stmt->fetchColumn();
-}
+require_once( 'vendor/autoload.php' );
 
 $firstName = $_SESSION['first_name'];
 $middleName = $_SESSION['middle_name'];
@@ -37,27 +31,32 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
         SELECT c.*, 
                b.barangay_name, 
                cc.complaints_category,
+               c_cert.cert_path,
                u.cp_number,          
                u.gender,            
                u.place_of_birth,    
                u.age,               
-                u.nationality,
-                u.educational_background,
+               u.nationality,
+               u.educational_background,
                u.civil_status,
                u.purok,
                GROUP_CONCAT(DISTINCT e.evidence_path SEPARATOR ',') AS evidence_paths,
-               GROUP_CONCAT(DISTINCT CONCAT(h.hearing_date, '|', h.hearing_time, '|', h.hearing_type, '|', h.hearing_status) SEPARATOR ',') AS hearing_history
+               GROUP_CONCAT(DISTINCT CONCAT(h.hearing_date, '|', h.hearing_time, '|', h.hearing_type, '|', h.hearing_status) SEPARATOR ',') AS hearing_history,
+               c_cert.cert_path AS certificate_path -- Add certificate path from tbl_complaints_certificates
         FROM tbl_complaints c
         JOIN tbl_users_barangay b ON c.barangays_id = b.barangays_id
         JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
         JOIN tbl_users u ON c.user_id = u.user_id  
         LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
         LEFT JOIN tbl_hearing_history h ON c.complaints_id = h.complaints_id
-        WHERE c.status = 'Approved' AND b.barangay_name = ?
+        LEFT JOIN tbl_complaints_certificates c_cert ON c.complaints_id = c_cert.complaints_id -- Join with tbl_complaints_certificates
+        WHERE c.status = 'Approved' AND c.barangay_saan = ?
         GROUP BY c.complaints_id
-        ORDER BY c.date_filed ASC
+        ORDER BY c.date_filed DESC
         LIMIT ?, ?
     ");
+     
+    
     
 
         $stmt->bindParam(1, $barangay_name, PDO::PARAM_STR);
@@ -76,7 +75,8 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
                 $complaint_name = htmlspecialchars($row['complaint_name']);
                 $complaint_ano = htmlspecialchars($row['ano']);
                 $complaint_barangay_saan= htmlspecialchars($row['barangay_saan']);
-                $complaint_kailan = htmlspecialchars($row['kailan']);
+// Combine kailan_date and kailan_time fields
+$complaint_kailan = htmlspecialchars($row['kailan_date']) . ' ' . htmlspecialchars($row['kailan_time']);
                 $complaint_paano = htmlspecialchars($row['paano']);
                 $complaint_bakit= htmlspecialchars($row['bakit']);
                 $complaint_description = htmlspecialchars($row['complaints']);
@@ -96,6 +96,8 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
                 $complaint_date_filed = htmlspecialchars($row['date_filed']);
                 $complaint_status = htmlspecialchars($row['status']);
                 $complaint_hearing_status = htmlspecialchars($row['hearing_history']);
+                $complaint_cert_path = htmlspecialchars($row['cert_path']);
+
 
                 echo "<tr>";
                 echo "<td style='text-align: center; vertical-align: middle;'>{$rowNumber}</td>"; // Display row number centered
@@ -139,6 +141,8 @@ function displayComplaints($pdo, $start_from, $results_per_page) {
                                 data-evidence_paths='{$complaint_evidence}' 
                                 data-date_filed='{$complaint_date_filed}' 
                                 data-status='{$complaint_status}' 
+                              data-cert_path='{$complaint_cert_path}' 
+
                                 data-hearing_history='{$complaint_hearing_status}' 
                                 data-bs-toggle='modal' data-bs-target='#complaintModal'>
                             View Details
@@ -204,12 +208,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_hearing'])) {
 
 
 
-// Pagination
-   // Calculate total pages
-   $stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM tbl_complaints c JOIN tbl_users_barangay b ON c.barangays_id = b.barangays_id WHERE c.status = 'settled_in_barangay' AND b.barangay_name = ?");
-   $stmt->execute([$barangay_name]);
-   $total_results = $stmt->fetchColumn();
-   $total_pages = ceil($total_results / $results_per_page);
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) {
+    $page = 1;
+}
+
+$results_per_page = 10; // Set how many results per page
+$start_from = ($page - 1) * $results_per_page;
+
+// Count total complaints
+$stmt = $pdo->prepare("SELECT COUNT(*) AS total FROM tbl_complaints WHERE status = 'Approved'");
+$stmt->execute();
+$total_results = $stmt->fetchColumn();
+$total_pages = ceil($total_results / $results_per_page);
 
 ?>
 
@@ -227,20 +238,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_hearing'])) {
     <link rel="stylesheet" type="text/css" href="../styles/style.css">
 </head>
 <style>
-.popover-content {
-    background-color: whitesmoke; 
-    
-    padding: 10px; /* Add some padding */
-    border: 1px solid #495057; /* Optional: border for better visibility */
-    border-radius: 5px; /* Optional: rounded corners */
-    max-height: 300px; /* Ensure it doesn't grow too large */
-    overflow-y: auto; /* Add vertical scroll if needed */
-}
-
-/* Adjust the arrow for the popover to ensure it points correctly */
-.popover .popover-arrow {
-    border-top-color: #343a40; /* Match the background color */
-}
 
 
 .sidebar-toggler {
@@ -285,7 +282,9 @@ span {
     margin-bottom: 10px;
 }
 
-
+body{
+    background-color: #ffffff;
+}
       
 </style>
 <body>
@@ -318,6 +317,7 @@ include '../includes/edit-profile.php';
             <form method="POST">
     <label class="form-label">Sort by Status:</label>
     <select id="statusDropdown" name="status" onchange="handleStatusChange(this.value)">
+        <option value="">select</option>
         <option value="Approved" 
             <?php echo (isset($_GET['status']) && $_GET['status'] == 'Approved') ? 'selected' : ''; ?>>
             Approved
@@ -350,18 +350,30 @@ function handleStatusChange(status) {
 }
 </script>
 
+<!-- Add Walk-In Button -->
 
+
+
+<div style="width: 100%; text-align: center;">
+    <button onclick="window.location.href='add_walkin_page.php';" class="btn btn-primary">Add Walk-In</button>
+    <button onclick="window.location.href='cert.php';" class="btn btn-success">Make  certificate</button>
+
+</div >
+
+<div>
+</div >
+       
                 <tr>
                 <th style="text-align: center; vertical-align: middle;">#</th> <!-- Row number centered -->
             <th style="text-align: left; vertical-align: middle;">Complaint Name</th> <!-- Complaint name aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Date Filed</th> <!-- Date filed aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Barangay</th> <!-- Barangay aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;"><Address></Address></th> <!-- Barangay aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Purok</th> <!-- Purok aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Ano</th> <!-- Ano aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Saan</th> <!-- Saan aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Kailan</th> <!-- Kailan aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Paano</th> <!-- Paano aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Bakit</th> <!-- Bakit aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">What</th> <!-- Ano aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">Where</th> <!-- Saan aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">When</th> <!-- Kailan aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">How</th> <!-- Paano aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">why</th> <!-- Bakit aligned to the left -->
             <th style="text-align: center; vertical-align: middle;">Action</th> <!-- Action button aligned to the center -->
                 </tr>
             </thead>
@@ -373,34 +385,32 @@ function handleStatusChange(status) {
 
         
 
+        <nav aria-label="Page navigation example">
+  <ul class="pagination justify-content-center">
+    <!-- Previous Page Link -->
+    <li class="page-item <?= ($page <= 1) ? 'disabled' : '' ?>">
+      <a class="page-link" href="<?= ($page > 1) ? $_SERVER['PHP_SELF'] . '?page=' . ($page - 1) : '#' ?>" aria-label="Previous">
+        <span aria-hidden="true">&laquo;</span>
+      </a>
+    </li>
 
-        <nav>
-        <ul class="pagination justify-content-center">
-            <?php if ($page > 1): ?>
-                <li class="page-item">
-                    <a class="page-link" href="?page=1&search=<?= htmlspecialchars($search_query); ?>">First</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page=<?= $page - 1; ?>&search=<?= htmlspecialchars($search_query); ?>">Previous</a>
-                </li>
-            <?php endif; ?>
+    <!-- Page Numbers -->
+    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+      <li class="page-item <?= ($i == $page) ? 'active' : '' ?>">
+        <a class="page-link" href="<?= $_SERVER['PHP_SELF'] . '?page=' . $i ?>"><?= $i ?></a>
+      </li>
+    <?php endfor; ?>
 
-            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                <li class="page-item <?= ($i == $page) ? 'active' : ''; ?>">
-                    <a class="page-link" href="?page=<?= $i; ?>&search=<?= htmlspecialchars($search_query); ?>"><?= $i; ?></a>
-                </li>
-            <?php endfor; ?>
+    <!-- Next Page Link -->
+    <li class="page-item <?= ($page >= $total_pages) ? 'disabled' : '' ?>">
+      <a class="page-link" href="<?= ($page < $total_pages) ? $_SERVER['PHP_SELF'] . '?page=' . ($page + 1) : '#' ?>" aria-label="Next">
+        <span aria-hidden="true">&raquo;</span>
+      </a>
+    </li>
+  </ul>
+</nav>
 
-            <?php if ($page < $total_pages): ?>
-                <li class="page-item">
-                    <a class="page-link" href="?page=<?= $page + 1; ?>&search=<?= htmlspecialchars($search_query); ?>">Next</a>
-                </li>
-                <li class="page-item">
-                    <a class="page-link" href="?page=<?= $total_pages; ?>&search=<?= htmlspecialchars($search_query); ?>">Last</a>
-                </li>
-            <?php endif; ?>
-        </ul>
-    </nav>
+
 
     </div>
 </div>
@@ -410,11 +420,11 @@ function handleStatusChange(status) {
 
 
 
-    <div class="modal fade" id="viewComplaintModal" tabindex="-1" aria-labelledby="viewComplaintModalLabel" aria-hidden="true">
+    <div class="modal fade" id="viewsComplaintModal" tabindex="-1" aria-labelledby="viewsComplaintModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="viewComplaintModalLabel">Complaint Details</h5>
+                <h5 class="modal-title" id="viewsComplaintModalLabel">Complaint Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -434,7 +444,7 @@ function handleStatusChange(status) {
         <div class="mb-3">
             <label for="hearing-type" class="form-label">Hearing Type</label>
             <select class="form-select" id="hearing-type" name="hearing_type" >
-                <option value="" disabled selected>Select Hearing Type</option>
+                <option value="" >Select Hearing Type</option>
                 <option value="First Hearing">First Hearing</option>
                 <option value="Second Hearing">Second Hearing</option>
                 <option value="Third Hearing">Third Hearing</option>
@@ -444,7 +454,7 @@ function handleStatusChange(status) {
         <div class="mb-3">
                             <label for="hearing-status" class="form-label">Hearing Status</label>
                             <select class="form-select" id="hearing-status" name="hearing_status" >
-                                <option value="" disabled selected>Select Hearing Status</option>
+                                <option value="" >Select Hearing Status</option>
                                 <option value="Attended">Attended</option>
                                 <option value="Not Attended">Not Attended</option>
                                 <option value="Not Resolved">Not Resolved</option>
@@ -480,6 +490,7 @@ include 'complaints_viewmodal.php';
 
 
 
+    <div id="notificationCard" class="card d-none" style="position: absolute; top: 50px; right: 10px; width: 300px; z-index: 1050;"></div>
 
 
 
@@ -500,7 +511,7 @@ include 'complaints_viewmodal.php';
   <script>
 
 
-function getCurrentDate() {
+function getCurrentDate() { 
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are zero-based
@@ -519,86 +530,139 @@ function getCurrentDate() {
         });
     });
 
+
+    // Handle Move to PNP button click
     document.addEventListener('DOMContentLoaded', function() {
     const viewButtons = document.querySelectorAll('.view-details-btn');
+
     viewButtons.forEach(button => {
         button.addEventListener('click', function() {
-         // Populate modal with data
-document.getElementById('modal-name').value = this.dataset.name;
-document.getElementById('modal-ano').value = this.dataset.ano;
-document.getElementById('modal-saan').value = this.dataset.saan;
-document.getElementById('modal-kailan').value = this.dataset.kailan;
-document.getElementById('modal-paano').value = this.dataset.paano;
-document.getElementById('modal-bakit').value = this.dataset.bakit;
+            // Populate modal fields with dataset values
+            document.getElementById('modal-name').value = this.dataset.name;
+            document.getElementById('modal-ano').value = this.dataset.ano;
+            document.getElementById('modal-saan').value = this.dataset.saan;
+            document.getElementById('modal-kailan').value = this.dataset.kailan;
+            document.getElementById('modal-paano').value = this.dataset.paano;
+            document.getElementById('modal-bakit').value = this.dataset.bakit;
+            document.getElementById('modal-description').value = this.dataset.description;
+            document.getElementById('modal-category').value = this.dataset.category;
+            document.getElementById('modal-barangay').value = this.dataset.barangay;
+            document.getElementById('modal-contact').value = this.dataset.contact;
+            document.getElementById('modal-person').value = this.dataset.person;
+            document.getElementById('modal-gender').value = this.dataset.gender;
+            document.getElementById('modal-birth_place').value = this.dataset.birth_place;
+            document.getElementById('modal-age').value = this.dataset.age;
+            document.getElementById('modal-education').value = this.dataset.education;
+            document.getElementById('modal-civil_status').value = this.dataset.civil_status;
+            document.getElementById('modal-date_filed').value = this.dataset.date_filed;
+            document.getElementById('modal-status').value = this.dataset.status;
+            document.getElementById('modal-nationality').value = this.dataset.nationality;
 
-document.getElementById('modal-description').value = this.dataset.description;
-document.getElementById('modal-category').value = this.dataset.category;
-document.getElementById('modal-barangay').value = this.dataset.barangay;
-document.getElementById('modal-contact').value = this.dataset.contact;
-document.getElementById('modal-person').value = this.dataset.person;
-document.getElementById('modal-gender').value = this.dataset.gender;
-document.getElementById('modal-birth_place').value = this.dataset.birth_place;
-document.getElementById('modal-age').value = this.dataset.age;
-document.getElementById('modal-education').value = this.dataset.education;
-document.getElementById('modal-civil_status').value = this.dataset.civil_status;
-document.getElementById('modal-date_filed').value = this.dataset.date_filed;
-document.getElementById('modal-status').value = this.dataset.status;
-document.getElementById('modal-nationality').value = this.dataset.nationality;
-
-         
-
-            // Handle hearing history display
-            var hearingHistoryHtml = '';
+            // Handle Hearing History
+            let hearingHistoryHtml = '<h5>Hearing History:</h5>';
             if (this.dataset.hearing_history) {
-                var hearings = this.dataset.hearing_history.split(',');
-                hearingHistoryHtml = '<h5>Hearing History:</h5><table class="table"><thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Status</th></tr></thead><tbody>';
+                let hearings = this.dataset.hearing_history.split(',');
+                hearingHistoryHtml += '<table class="table"><thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Status</th></tr></thead><tbody>';
+                
                 hearings.forEach(function (hearing) {
-                    var details = hearing.split('|');
-                    hearingHistoryHtml += `
-                        <tr>
-                            <td>${details[0]}</td>
-                            <td>${details[1]}</td>
-                            <td>${details[2]}</td>
-                            <td>${details[3]}</td>
-                        </tr>
-                    `;
+                    let details = hearing.split('|');
+                    hearingHistoryHtml += `<tr>
+                        <td>${details[0]}</td>
+                        <td>${details[1]}</td>
+                        <td>${details[2]}</td>
+                        <td>${details[3]}</td>
+                    </tr>`;
                 });
+
                 hearingHistoryHtml += '</tbody></table>';
             } else {
-                hearingHistoryHtml = '<p>No hearing history available.</p>';
+                hearingHistoryHtml += '<p>No hearing history available.</p>';
             }
             document.getElementById('modalHearingHistorySection').innerHTML = hearingHistoryHtml;
 
-            // Handle evidence display
-            var evidenceHtml = '<h5>Evidence:</h5>';
+            // Handle Evidence Display
+            let evidenceHtml = '<h5>Evidence:</h5>';
             if (this.dataset.evidence_paths) {
-                var evidencePaths = this.dataset.evidence_paths.split(',').map(path => path.trim());
+                let evidencePaths = this.dataset.evidence_paths.split(',').map(path => path.trim());
                 if (evidencePaths.length > 0) {
                     evidenceHtml += '<ul>';
                     evidencePaths.forEach(function (path) {
-                        evidenceHtml += `<li><a href="../uploads/${path}" target="_blank">View Evidence</a></li>`;
+                        let fileExtension = path.split('.').pop().toLowerCase();
+                        if (fileExtension === 'pdf') {
+                            evidenceHtml += `<li><a href="../uploads/${path}" target="_blank">View Evidence (PDF)</a></li>`;
+                        } else {
+                            evidenceHtml += `<li><a href="../uploads/${path}" target="_blank">View Evidence</a></li>`;
+                        }
                     });
                     evidenceHtml += '</ul>';
                 } else {
                     evidenceHtml += '<p>No evidence available.</p>';
                 }
-                document.getElementById('modalEvidenceSection').style.display = 'block';
             } else {
                 evidenceHtml += '<p>No evidence available.</p>';
-                document.getElementById('modalEvidenceSection').style.display = 'block';
             }
             document.getElementById('modalEvidenceSection').innerHTML = evidenceHtml;
 
-            // Store the complaint ID in the modal for use later
+            // Handle Certificate Display
+            let certPath = this.dataset.cert_path;
+            let certContainer = document.getElementById('modalCertificateSection');
+            let certImg = document.getElementById('modal-cert_path');
+
+            if (certPath) {
+                let fileExtension = certPath.split('.').pop().toLowerCase();
+                let imageExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+
+                if (imageExtensions.includes(fileExtension)) {
+                    certContainer.innerHTML = `<img src="../uploads/${certPath}" 
+                        alt="Certificate" 
+                        style="max-width: 40%; height: auto; cursor: pointer;" 
+                        onclick="viewFile('../uploads/${certPath}', 'image')">`;
+                    certImg.style.display = 'block';
+                } else if (fileExtension === 'pdf') {
+                    certContainer.innerHTML = `<a href="#" onclick="viewFile('../uploads/${certPath}', 'pdf')">View Certificate (PDF)</a>`;
+                    certImg.style.display = 'none';
+                } else {
+                    certContainer.innerHTML = `<a href="../uploads/${certPath}" download>Download Certificate</a>`;
+                    certImg.style.display = 'none';
+                }
+            } else {
+                certContainer.innerHTML = "<p>No certificate uploaded.</p>";
+            }
+
+            // Store the complaint ID in the modal
             document.getElementById('complaintModal').setAttribute('data-complaint-id', this.dataset.id);
         });
     });
-
-
-
-    // Handle Move to PNP button click
-   
 });
+
+// Function to view files (images and PDFs)
+function viewFile(filePath, type) {
+    let viewerModal = document.getElementById('fileViewerModal');
+    let viewerContent = document.getElementById('fileViewerContent');
+
+    if (type === 'image') {
+        viewerContent.innerHTML = `<img src="${filePath}" style="max-width: 100%; height: auto;">`;
+    } else if (type === 'pdf') {
+        viewerContent.innerHTML = `<iframe src="${filePath}" style="width: 100%; height: 600px;"></iframe>`;
+    }
+
+    // Manually show the modal using Bootstrap's modal method
+    $(viewerModal).modal('show');
+}
+
+
+function closeFileViewer() {
+    let viewerModal = document.getElementById('fileViewerModal');
+    let viewerContent = document.getElementById('fileViewerContent');
+
+    // Clear the content of the modal to avoid lingering data
+    viewerContent.innerHTML = '';
+
+    // Close the modal using Bootstrap's modal method
+    $(viewerModal).modal('hide');
+}
+
+
 
 document.addEventListener('DOMContentLoaded', function() {
     const moveToPnpBtn = document.getElementById('moveToPnpBtn');
@@ -655,7 +719,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const status = this.dataset.status;
 
             // Set the complaint ID as a data attribute on the modal
-            document.getElementById('viewComplaintModal').setAttribute('data-complaint-id', complaintId);
+            document.getElementById('viewsComplaintModal').setAttribute('data-complaint-id', complaintId);
 
             // Show the hearing section if the complaint status is 'Approved'
             document.getElementById('hearingSection').style.display = status === 'Approved' ? 'block' : 'none';
@@ -690,7 +754,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function setHearingDetails() {
-        const complaintId = document.getElementById('viewComplaintModal').getAttribute('data-complaint-id');
+        const complaintId = document.getElementById('viewsComplaintModal').getAttribute('data-complaint-id');
         const hearingDate = document.getElementById('hearing-date').value;
         const hearingTime = document.getElementById('hearing-time').value;
         const hearingType = document.getElementById('hearing-type').value;
@@ -715,134 +779,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-
-document.addEventListener("DOMContentLoaded", function () {
-    const notificationButton = document.getElementById('notificationButton');
-    const modalBody = document.getElementById('notificationModalBody');
-
-    function fetchNotifications() {
-        return fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json().catch(() => ({ success: false }))) // Handle JSON parsing errors
-        .then(data => {
-            if (data.success) {
-                const notificationCount = data.notifications.length;
-                const notificationCountBadge = document.getElementById("notificationCount");
-
-                if (notificationCount > 0) {
-                    notificationCountBadge.textContent = notificationCount;
-                    notificationCountBadge.classList.remove("d-none");
-                } else {
-                    notificationCountBadge.textContent = "0";
-                    notificationCountBadge.classList.add("d-none");
-                }
-
-                let notificationListHtml = '';
-                if (notificationCount > 0) {
-                    data.notifications.forEach(notification => {
-                        notificationListHtml += `
-                            <div class="dropdown-item" 
-                                 data-id="${notification.complaints_id}" 
-                                 data-status="${notification.status}" 
-                                 data-complaint-name="${notification.complaint_name}" 
-                                 data-barangay-name="${notification.barangay_name}">
-                                Complaint: ${notification.complaint_name}<br>
-                                Barangay: ${notification.barangay_name}<br>
-                                Status: ${notification.status}
-                                <hr>
-                            </div>
-                        `;
-                    });
-                } else {
-                    notificationListHtml = '<div class="dropdown-item text-center">No new notifications</div>';
-                }
-
-                const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
-                if (popoverInstance) {
-                    popoverInstance.setContent({
-                        '.popover-body': notificationListHtml
-                    });
-                } else {
-                    new bootstrap.Popover(notificationButton, {
-                        html: true,
-                        content: function () {
-                            return `<div class="popover-content">${notificationListHtml}</div>`;
-                        },
-                        container: 'body'
-                    });
-                }
-
-                document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
-                    item.addEventListener('click', function () {
-                        const notificationId = this.getAttribute('data-id');
-                        markNotificationAsRead(notificationId);
-                    });
-                });
-            } else {
-                console.error("Failed to fetch notifications");
-            }
-        })
-        .catch(error => {
-            console.error("Error fetching notifications:", error);
-        });
-    }
-
-    function markNotificationAsRead(notificationId) {
-        fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notificationId: notificationId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Notification marked as read');
-                fetchNotifications(); // Refresh notifications
-            } else {
-                console.error("Failed to mark notification as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-
-    fetchNotifications();
-
-    notificationButton.addEventListener('shown.bs.popover', function () {
-        markNotificationsAsRead();
-    });
-
-    function markNotificationsAsRead() {
-        fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ markAsRead: true })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const badge = document.querySelector(".badge.bg-danger");
-                if (badge) {
-                    badge.classList.add("d-none");
-                }
-            } else {
-                console.error("Failed to mark notifications as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-});
 
 
 
@@ -880,6 +816,114 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
+
+
+
+
+
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    const notificationButton = document.getElementById('notificationButton');
+    const notificationCountBadge = document.getElementById('notificationCount');
+    const notificationCard = document.getElementById('notificationCard');
+
+    // Toggle the notification card
+    notificationButton.addEventListener('click', function () {
+        notificationCard.classList.toggle('d-none');
+    });
+
+    // Fetch notifications
+    function fetchNotifications() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Filter out notifications with 'Settled in Barangay' and 'Settled in PNP'
+                const filteredNotifications = data.notifications.filter(notification => 
+                    notification.status !== 'Settled in Barangay' && notification.status !== 'Settled in PNP'
+                );
+
+                const notificationCount = filteredNotifications.length;
+
+                if (notificationCount > 0) {
+                    notificationCountBadge.textContent = notificationCount;
+                    notificationCountBadge.classList.remove('d-none');
+                } else {
+                    notificationCountBadge.textContent = "0";
+                    notificationCountBadge.classList.add('d-none');
+                }
+
+                let notificationListHtml = '<div class="card-header">Notifications</div><div class="card-body" style="max-height: 300px; overflow-y: auto;">';
+
+                if (notificationCount > 0) {
+                    filteredNotifications.slice(0, 5).forEach(notification => {
+                        notificationListHtml += `
+                            <div class="card-text border-bottom p-2">
+                                <strong>Complaint:</strong> <a href="barangaylogs.php?complaint=${encodeURIComponent(notification.complaint_name)}&barangay=${encodeURIComponent(notification.barangay_name)}&status=${encodeURIComponent(notification.status)}">${notification.complaint_name}</a><br>
+                                <strong>Barangay:</strong> ${notification.barangay_name}<br>
+                                <strong>Status:</strong> ${notification.status}
+                            </div>`;
+                    });
+                } else {
+                    notificationListHtml += '<div class="text-center">No new notifications</div>';
+                }
+
+                notificationListHtml += '</div>';
+                notificationCard.innerHTML = notificationListHtml;
+
+            } else {
+                console.error("Failed to fetch notifications");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching notifications:", error);
+        });
+    }
+
+    // Initial fetch
+    fetchNotifications();
+
+    // Refresh notifications every 30 seconds
+    setInterval(fetchNotifications, 30000);
+
+    // Mark notifications as read when the button is clicked
+    notificationButton.addEventListener('click', function () {
+        markNotificationsAsRead();
+    });
+
+    function markNotificationsAsRead() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ markAsRead: true })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                notificationCountBadge.classList.add('d-none');
+            } else {
+                console.error("Failed to mark notifications as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+});
 function confirmLogout() {
         Swal.fire({
             title: "Are you sure?",
@@ -897,6 +941,24 @@ function confirmLogout() {
         });
 
     }
+
+
+
+     // Check if the session variable is set and show SweetAlert
+     <?php 
+        
+        if (isset($_SESSION['success'])): ?>
+            Swal.fire({
+                position: 'center',
+                icon: 'success',
+                title: 'Your complaint has been submitted',
+                showConfirmButton: false,
+                timer: 1500
+            });
+          
+            <?php unset($_SESSION['success']); ?>
+        <?php endif; ?>
+
 
 
     </script>

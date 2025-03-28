@@ -2,6 +2,7 @@
 // Start session and include database connection
 include '../connection/dbconn.php'; 
 include '../barangay/notifications.php';
+require_once( 'vendor/autoload.php' );
 
 include '../includes/bypass.php';
 
@@ -15,7 +16,7 @@ $firstName = $_SESSION['first_name'];
 $middleName = $_SESSION['middle_name'];
 $lastName = $_SESSION['last_name'];
 $extensionName = isset($_SESSION['extension_name']) ? $_SESSION['extension_name'] : '';
-$email = isset($_SESSION['email']) ? $_SESSION['email'] : '';
+$cp_number = isset($_SESSION['cp_number']) ? $_SESSION['cp_number'] : '';
 $barangay_name = isset($_SESSION['barangay_name']) ? $_SESSION['barangay_name'] : '';
 $pic_data = isset($_SESSION['pic_data']) ? $_SESSION['pic_data'] : '';
 
@@ -25,26 +26,68 @@ $page = isset($_GET['page']) && is_numeric($_GET['page']) && $_GET['page'] > 0 ?
 $start_from = ($page - 1) * $results_per_page;
 
 // Handle status update
+// Handle status update
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['complaint_id']) && isset($_POST['action'])) {
     try {
         $complaint_id = $_POST['complaint_id'];
         $action = $_POST['action'];
         $status = ($action == 'approve') ? 'Approved' : 'Rejected';
 
-        // Update complaint status
-        $stmt = $pdo->prepare("UPDATE tbl_complaints SET status = ? WHERE complaints_id = ?");
-        $stmt->execute([$status, $complaint_id]);
+        // Fetch complainant's phone number and name
+        $stmt = $pdo->prepare("SELECT u.cp_number, u.first_name, u.last_name 
+                               FROM tbl_complaints c 
+                               JOIN tbl_users u ON c.user_id = u.user_id 
+                               WHERE c.complaints_id = ?");
+        $stmt->execute([$complaint_id]);
+        $complainant = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Set success message using session
-        $_SESSION['success'] = "Complaint status updated successfully.";
-        header("Location: manage-complaints.php");
-        exit();
+        if ($complainant) {
+            $cp_number = $complainant['cp_number'];
+            $complainant_name = $complainant['first_name'] . ' ' . $complainant['last_name'];
+
+            // Update complaint status
+            $stmt = $pdo->prepare("UPDATE tbl_complaints SET status = ? WHERE complaints_id = ?");
+            $stmt->execute([$status, $complaint_id]);
+
+            // Send SMS notification
+            if (!empty($cp_number)) {
+                sendSMSNotification($cp_number, $complainant_name, $status);
+            }
+
+            // Set success message
+            $_SESSION['success'] = "Complaint status updated successfully.";
+            header("Location: manage-complaints.php");
+            exit();
+        } else {
+            $_SESSION['error'] = "Complainant not found.";
+            header("Location: manage-complaints.php");
+            exit();
+        }
     } catch (PDOException $e) {
         $_SESSION['error'] = "Error updating complaint status: " . $e->getMessage();
         header("Location: manage-complaints.php");
         exit();
     }
 }
+
+// Function to send SMS
+function sendSMSNotification($phone, $name, $status) {
+    $ch = curl_init();
+    $message = "Hello $name, your complaint status has been updated to: $status.";
+    $parameters = array(
+        'apikey' => '0a1c1d98b58a36653a8b7c1486b78786', // Replace with your actual API key
+        'number' => $phone,
+        'message' => $message,
+        'sendername' => 'Copwatch'
+    );
+    curl_setopt($ch, CURLOPT_URL, 'https://semaphore.co/api/v4/messages');
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($parameters));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $output = curl_exec($ch);
+    curl_close($ch);
+}
+
 
 // Fetch complaints with status 'Inprogress' from the user's barangay
 try {
@@ -80,7 +123,8 @@ try {
         JOIN tbl_users u ON c.user_id = u.user_id  
         LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
         LEFT JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
-        WHERE c.status = 'inprogress' AND ub.barangay_name = ? AND c.status != 'Rejected'
+        WHERE c.status = 'inprogress' AND c.barangay_saan = ? AND c.status != 'Rejected'
+         ORDER BY c.date_filed DESC -- Sort by latest date first
         LIMIT ?, ?
     ");
     $stmt->bindValue(1, $barangay_name, PDO::PARAM_STR);
@@ -156,7 +200,9 @@ margin-left: 5rem;
             text-align: center;
         }
     
-
+body{
+    background-color: #ffffff;
+}
     </style>
 <body>
 <?php 
@@ -200,6 +246,7 @@ include '../includes/edit-profile.php';
      <form method="POST">
     <label class="form-label">Sort by Status:</label>
     <select id="statusDropdown" name="status" onchange="handleStatusChange(this.value)">
+        <option value="">select</option>
         <option value="Approved" 
             <?php echo (isset($_GET['status']) && $_GET['status'] == 'Approved') ? 'selected' : ''; ?>>
             Approved
@@ -220,17 +267,20 @@ function handleStatusChange(status) {
     }
 }
 </script>
+
+
+
 <tr>
             <th style="text-align: center; vertical-align: middle;">#</th> <!-- Row number centered -->
             <th style="text-align: left; vertical-align: middle;">Complaint Name</th> <!-- Complaint name aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Date Filed</th> <!-- Date filed aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Barangay</th> <!-- Barangay aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">Address</th> <!-- Barangay aligned to the left -->
             <th style="text-align: left; vertical-align: middle;">Purok</th> <!-- Purok aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Ano</th> <!-- Ano aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Saan</th> <!-- Saan aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Kailan</th> <!-- Kailan aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Paano</th> <!-- Paano aligned to the left -->
-            <th style="text-align: left; vertical-align: middle;">Bakit</th> <!-- Bakit aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">What</th> <!-- Ano aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">Where</th> <!-- Saan aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">When</th> <!-- Kailan aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">How</th> <!-- Paano aligned to the left -->
+            <th style="text-align: left; vertical-align: middle;">Why</th> <!-- Bakit aligned to the left -->
             <th style="text-align: center; vertical-align: middle;">Action</th> <!-- Action button aligned to the center -->
         </tr>
     </thead>
@@ -247,7 +297,8 @@ function handleStatusChange(status) {
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['purok']); ?></td> <!-- Left-align purok -->
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['ano']); ?></td> <!-- Left-align ano -->
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['barangay_saan']); ?></td> <!-- Left-align saan -->
-                <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['kailan']); ?></td> <!-- Left-align kailan -->
+                <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['kailan_date']) . ' ' . htmlspecialchars($complaint['kailan_time']); ?></td>
+
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['paano']); ?></td> <!-- Left-align paano -->
                 <td style="text-align: left; vertical-align: middle;"><?php echo htmlspecialchars($complaint['bakit']); ?></td> <!-- Left-align bakit -->
                 <td style="text-align: center; vertical-align: middle;">
@@ -414,6 +465,7 @@ function handleStatusChange(status) {
         </div>
     </div>
 </div>
+<div id="notificationCard" class="card d-none" style="position: absolute; top: 50px; right: 10px; width: 300px; z-index: 1050;"></div>
 
 <!-- Include JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -507,6 +559,111 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    const notificationButton = document.getElementById('notificationButton');
+    const notificationCountBadge = document.getElementById('notificationCount');
+    const notificationCard = document.getElementById('notificationCard');
+
+    // Toggle the notification card
+    notificationButton.addEventListener('click', function () {
+        notificationCard.classList.toggle('d-none');
+    });
+
+    // Fetch notifications
+    function fetchNotifications() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Filter out notifications with 'Settled in Barangay' and 'Settled in PNP'
+                const filteredNotifications = data.notifications.filter(notification => 
+                    notification.status !== 'Settled in Barangay' && notification.status !== 'Settled in PNP'
+                );
+
+                const notificationCount = filteredNotifications.length;
+
+                if (notificationCount > 0) {
+                    notificationCountBadge.textContent = notificationCount;
+                    notificationCountBadge.classList.remove('d-none');
+                } else {
+                    notificationCountBadge.textContent = "0";
+                    notificationCountBadge.classList.add('d-none');
+                }
+
+                let notificationListHtml = '<div class="card-header">Notifications</div><div class="card-body" style="max-height: 300px; overflow-y: auto;">';
+
+                if (notificationCount > 0) {
+                    filteredNotifications.slice(0, 5).forEach(notification => {
+                        notificationListHtml += `
+                            <div class="card-text border-bottom p-2">
+                                <strong>Complaint:</strong> <a href="barangaylogs.php?complaint=${encodeURIComponent(notification.complaint_name)}&barangay=${encodeURIComponent(notification.barangay_name)}&status=${encodeURIComponent(notification.status)}">${notification.complaint_name}</a><br>
+                                <strong>Barangay:</strong> ${notification.barangay_name}<br>
+                                <strong>Status:</strong> ${notification.status}
+                            </div>`;
+                    });
+                } else {
+                    notificationListHtml += '<div class="text-center">No new notifications</div>';
+                }
+
+                notificationListHtml += '</div>';
+                notificationCard.innerHTML = notificationListHtml;
+
+            } else {
+                console.error("Failed to fetch notifications");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching notifications:", error);
+        });
+    }
+
+    // Initial fetch
+    fetchNotifications();
+
+    // Refresh notifications every 30 seconds
+    setInterval(fetchNotifications, 30000);
+
+    // Mark notifications as read when the button is clicked
+    notificationButton.addEventListener('click', function () {
+        markNotificationsAsRead();
+    });
+
+    function markNotificationsAsRead() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ markAsRead: true })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                notificationCountBadge.classList.add('d-none');
+            } else {
+                console.error("Failed to mark notifications as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+});
+
+
+
 function confirmLogout() {
         Swal.fire({
             title: "Are you sure?",
@@ -524,6 +681,15 @@ function confirmLogout() {
         });
 
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+    var profilePic = document.querySelector('.profile');
+    var editProfileModal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+
+    profilePic.addEventListener('click', function () {
+        editProfileModal.show();
+    });
+});
 </script>
 
 

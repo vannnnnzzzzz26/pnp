@@ -3,10 +3,7 @@ include '../connection/dbconn.php';
 include '../resident/notifications.php';
 
 
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../reg/login.php");
-    exit();
-}
+
 
 $firstName = $_SESSION['first_name'];
 $middleName = $_SESSION['middle_name'];
@@ -30,8 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $barangay_saan = isset($_POST['barangay_saan']) ? htmlspecialchars($_POST['barangay_saan']) : '';
         
         // Get 'kailan' input and convert it to database-friendly datetime format
-        $kailan = isset($_POST['kailan']) ? htmlspecialchars($_POST['kailan']) : '';
-        $kailan_db_format = date('Y-m-d H:i:s', strtotime($kailan)); // Store as 'Y-m-d H:i:s'
+        $kailan_date = isset($_POST['kailan_date']) ? htmlspecialchars($_POST['kailan_date']) : '';
+        $kailan_time = isset($_POST['kailan_time']) ? htmlspecialchars($_POST['kailan_time']) : '';
+        $kailan_time_12hr = date("h:i:s A", strtotime($kailan_time)); // Convert to 12-hour format with AM/PM
+
 
         $paano = isset($_POST['paano']) ? htmlspecialchars($_POST['paano']) : '';
         $bakit = isset($_POST['bakit']) ? htmlspecialchars($_POST['bakit']) : '';
@@ -59,21 +58,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         // Handle category
-        $other_category = isset($_POST['other-category']) ? htmlspecialchars($_POST['other-category']) : '';
-        if ($category === 'Other' && !empty($other_category)) {
-            $category = $other_category; 
-        }
+        // Handle category selection
+$other_category = isset($_POST['other-category']) ? htmlspecialchars($_POST['other-category']) : '';
 
-        // Set status and response values based on category
-        $status = ($category === 'Other') ? 'pnp' : 'inprogress';
-        $responds = ($category === 'Other') ? 'pnp' : '';
+if ($category === 'Other' && !empty($other_category)) {
+    $category = $other_category; 
+
+    // Since it's an "Other" category, force status and response to 'pnp'
+    $status = 'pnp';
+    $responds = 'pnp';
+
+    // Insert new category into the database if it doesn't already exist
+    $stmt = $pdo->prepare("SELECT category_id FROM tbl_complaintcategories WHERE complaints_category = ?");
+    $stmt->execute([$category]);
+    $category_id = $stmt->fetchColumn();
+
+    if (!$category_id) {
+        $stmt = $pdo->prepare("INSERT INTO tbl_complaintcategories (complaints_category) VALUES (?)");
+        $stmt->execute([$category]);
+        $category_id = $pdo->lastInsertId();
+    }
+} else {
+    // If a predefined category is chosen, keep the default behavior
+    $status = 'inprogress';
+    $responds = '';
+}
+
 
         // Insert into tbl_complaints
         $user_id = $_SESSION['user_id']; // Retrieve user_id from session
 
-        $stmt = $pdo->prepare("INSERT INTO tbl_complaints (complaint_name, complaints, date_filed, category_id, barangays_id, complaints_person, status, responds, ano, barangay_saan, kailan, paano, bakit, user_id) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$complaint_name, $complaints, $date_filed, $category_id, $barangays_id, $complaints_person, $status, $responds, $ano, $barangay_saan, $kailan_db_format, $paano, $bakit, $user_id]);
+        $stmt = $pdo->prepare("INSERT INTO tbl_complaints (complaint_name, complaints, date_filed, category_id, barangays_id, complaints_person, status, responds, ano, barangay_saan, kailan_date, kailan_time, paano, bakit, user_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+$stmt->execute([$complaint_name, $complaints, $date_filed, $category_id, $barangays_id, $complaints_person, $status, $responds, $ano, $barangay_saan, $kailan_date, $kailan_time_12hr, $paano, $bakit, $user_id]);
 
         $complaint_id = $pdo->lastInsertId();
 
@@ -108,27 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Example retrieval of the 'kailan' field for displaying with AM/PM format
-if (isset($complaint_id)) {
-    $stmt = $pdo->prepare("SELECT kailan FROM tbl_complaints WHERE complaints_id = ?");
-    $stmt->execute([$complaint_id]);
-    $kailan_from_db = $stmt->fetchColumn();
-    
-    // Convert stored 'kailan' to AM/PM format for display
 
-    $kailan = isset($_POST['kailan']) ? htmlspecialchars($_POST['kailan']) : '';
 
-    // Convert the datetime-local format to MySQL datetime format
-    $kailan_db_format = date('Y-m-d H:i:s', strtotime($kailan));
-
-    // If you want to display AM/PM later, you can format it
-    $kailan_am_pm = date('F j, Y, g:i A', strtotime($kailan));
-
-    // Validate the conversion
-    if (!$kailan_db_format) {
-        throw new Exception("Invalid date format for 'kailan'.");
-    }
-}
 ?>
 
 
@@ -232,7 +230,7 @@ include '../includes/edit-profile.php';
               <p><?php echo htmlspecialchars("$firstName $middleName $lastName $extensionName"); ?></p>
             </div>
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="barangay">Barangay:</label>
+              <label for="barangay"><span class="text-danger">*</span> Address:</label>
               <?php 
                 include '../connection/dbconn.php'; 
                 try {
@@ -257,11 +255,11 @@ include '../includes/edit-profile.php';
           <!-- Complaint Information -->
           <div class="row">
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="complaints">Complaint:</label>
-              <textarea id="complaints" name="complaints" class="form-control" required></textarea>
+              <label for="complaints"><span class="text-danger">*</span> Complaint:</label>
+              <textarea id="complaints" name="complaints" class="form-control" placeholder="Tell the story from the beginning to the end" required></textarea>
             </div>
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="category">Category:</label>
+              <label for="category"> <span class="text-danger">*</span> Category:</label>
 <?php include 'category.php';
 ?>
            <button id="openModalButton" class="btn btn-primary">Viewn Category</button>
@@ -347,15 +345,16 @@ include '../includes/edit-profile.php';
 
 <div class="row">
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="ano">Ano (What):</label>
-        <input type="text" name="ano" id="ano" class="form-control" required>
+        <label for="ano"><span class="text-danger">*</span> What Happened:</label>
+        <input type="text" name="ano" id="ano" class="form-control" placeholder="A clear and consise description of the incident" required>
     </div>
 
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="barangay_saan">Saan (Where):</label>
+        <label for="barangay_saan"> <span class="text-danger">*</span> Location of incident:</label>
     
 
         <select id="barangay_saan" name="barangay_saan" class="form-select" required>
+            
                         <?php
                         // Array of barangays of echague
                         $barangays = [
@@ -379,18 +378,19 @@ include '../includes/edit-profile.php';
     </div>
 
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="kailan">Kailan (When):</label>
-        <input type="datetime-local" name="kailan" id="kailan" class="form-control" required>
+        <label for="kailan_date"> <span class="text-danger">*</span> When did happen (date):</label>
+        <input type="date" name="kailan_date" id="kailan_date" class="form-control" required>
+        <label for="kailan_time"><span class="text-danger">*</span>  When did happen (time):</label>
+        <input type="time" name="kailan_time" id="kailan_time" class="form-control" placeholder="time" required>
+    </div>
+    <div class="col-lg-6 col-md-12 form-group">
+        <label for="paano"><span class="text-danger">*</span> How did happen:</label>
+        <textarea name="paano" id="paano" class="form-control"  placeholder="Be detailed and factual. Include what you saw heard, and did"></textarea>
     </div>
 
     <div class="col-lg-6 col-md-12 form-group">
-        <label for="paano">Paano (How):</label>
-        <textarea name="paano" id="paano" class="form-control" required></textarea>
-    </div>
-
-    <div class="col-lg-6 col-md-12 form-group">
-        <label for="bakit">Bakit (Why):</label>
-        <textarea name="bakit" id="bakit" class="form-control" required></textarea>
+        <label for="bakit"><span class="text-danger">*</span> Why did it happen:</label>
+        <textarea name="bakit" id="bakit" class="form-control" placeholder="If you have any information about the motive  behind the incident" required></textarea>
     </div>
 </div>
 
@@ -399,11 +399,11 @@ include '../includes/edit-profile.php';
           <!-- Evidence and Complained Person -->
           <div class="row">
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="evidence">Upload Evidence:</label>
+              <label for="evidence"><span class="text-danger">*</span> Upload Evidence:</label>
               <input type="file" id="evidence" name="evidence[]" class="form-control" multiple required>
             </div>
             <div class="col-lg-6 col-md-12 form-group">
-              <label for="complaints_person">Person Involved :</label>
+              <label for="complaints_person"><span class="text-danger">*</span> Person Involved :</label>
               <input type="text" id="complaints_person" name="complaints_person" class="form-control" required>
             </div>
           </div>

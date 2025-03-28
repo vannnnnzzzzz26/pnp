@@ -1,150 +1,115 @@
 <?php
+session_start();
 include '../connection/dbconn.php';
+require 'otp_sender.php'; // Include OTP function
+require_once( 'vendor/autoload.php' );
 
-// Enable error reporting for debugging
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// Function to safely retrieve POST data
 function getPostData($key) {
     return isset($_POST[$key]) ? trim($_POST[$key]) : null;
 }
 
-// Function to validate strong password
 function isStrongPassword($password) {
     $pattern = '/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/';
     return preg_match($pattern, $password);
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Retrieve form data
-    $first_name = getPostData('first_name');
-    $middle_name = getPostData('middle_name');
-    $last_name = getPostData('last_name');
-    $extension_name = getPostData('extension_name'); // Optional field
-    $cp_number = getPostData('cp_number'); // CP Number instead of email
-    $password = getPostData('password');
-    $confirm_password = getPostData('confirm_password');
-    $accountType = getPostData('accountType');
-    $barangay_name = getPostData('barangay');
-    $security_question = getPostData('security_question');
-    $security_answer = getPostData('security_answer');
+    $upload_directory = '../uploads/'; // Directory for uploaded images
+    $pic_data = '';
+    $selfie_path = '';
 
-    // New fields
-    $civil_status = getPostData('civil_status');
-    $nationality = getPostData('nationality');
-    $age = getPostData('age');
-    $birth_date = getPostData('birth_date');
-    $gender = getPostData('gender');
-    $place_of_birth = getPostData('place_of_birth'); // Added field for place of birth
-    $purok = getPostData('purok'); // Added field for purok
-    $educational_background = getPostData('educational_background'); // Added field for educational background
-    $selfie_path = getPostData('selfie_path'); // Added field for educational background
+    // Handle Profile Picture Upload
+    if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+        $file_extension = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
+        $new_file_name = uniqid('profile_') . '.' . $file_extension;
+        $destination = $upload_directory . $new_file_name;
 
-    // Validate form data
-    if ($first_name && $middle_name && $last_name && $cp_number && $password && $confirm_password && $accountType && $barangay_name && $security_question && $security_answer && $civil_status && $nationality && $age && $birth_date && $gender && $place_of_birth && $purok && $educational_background) {
-        // Check if passwords match
-        if ($password !== $confirm_password) {
-            echo 'error_password';
-            exit;
-        }
-
-        // Check if password is strong
-        if (!isStrongPassword($password)) {
-            echo 'error_weak_password';
-            exit;
-        }
-
-        // Check if the CP Number already exists in the database
-        $stmt_check_cp_number = $pdo->prepare("SELECT COUNT(*) FROM tbl_users WHERE cp_number = ?");
-        $stmt_check_cp_number->execute([$cp_number]);
-        $count = $stmt_check_cp_number->fetchColumn();
-
-        if ($count > 0) {
-            echo 'error_cp_number_exists';
-            exit;
-        }
-
-        // Handle file upload for profile picture
-        $pic_data = null;
-        if ($_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
-            $temp_name = $_FILES['profile_picture']['tmp_name'];
-            $file_name = $_FILES['profile_picture']['name'];
-            $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
-            $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
-            $upload_directory = '../uploads/';
-            $new_file_name = uniqid('profile_') . '.' . $file_extension;
-            $destination = $upload_directory . $new_file_name;
-
-            // Validate file type and move file
-            if (in_array(strtolower($file_extension), $allowed_extensions)) {
-                if (move_uploaded_file($temp_name, $destination)) {
-                    $pic_data = $destination;
-                } else {
-                    echo 'error_file_upload';
-                    exit;
-                }
-            } else {
-                echo 'error_invalid_file_type';
-                exit;
-            }
-        }
-
-        // Handle Selfie upload
-        $selfie_path = null;
-        if (isset($_FILES['selfie']) && $_FILES['selfie']['error'] == UPLOAD_ERR_OK) {
-            $selfie_filename = basename($_FILES['selfie']['name']);
-            $selfie_path = '../uploads/' . uniqid('selfie_') . '_' . $selfie_filename;
-
-            if (!file_exists('../uploads')) {
-                mkdir('../uploads', 0777, true); 
-            }
-
-            if (move_uploaded_file($_FILES['selfie']['tmp_name'], $selfie_path)) {
-                // Selfie uploaded successfully
-            } else {
-                echo 'error_selfie_upload';
-                exit;
-            }
-        }
-
-        // Insert into tbl_users_barangay
-        $stmt_barangay = $pdo->prepare("INSERT INTO tbl_users_barangay (barangay_name) VALUES (?)");
-        $stmt_barangay->execute([$barangay_name]);
-        $barangays_id = $pdo->lastInsertId(); // Retrieve the last inserted ID
-
-        // Hash the password and security answer
-        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-        $hashed_answer = password_hash($security_answer, PASSWORD_DEFAULT);
-
-        // Insert into tbl_users (Fixed fields count and removed invalid variables)
-        $stmt_users = $pdo->prepare("
-            INSERT INTO tbl_users 
-            (first_name, middle_name, last_name, extension_name, cp_number, password, accountType, barangays_id, pic_data, selfie_path, security_question, security_answer, civil_status, nationality, age, birth_date, gender, place_of_birth, purok, educational_background) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmt_users->execute([
-            $first_name, $middle_name, $last_name, $extension_name, $cp_number, $hashedPassword, $accountType, 
-            $barangays_id, $pic_data, $selfie_path, $security_question, $hashed_answer, 
-            $civil_status, $nationality, $age, $birth_date, $gender, 
-            $place_of_birth, $purok, $educational_background
-        ]);
-
-        // Check if the user was successfully inserted
-        if ($stmt_users->rowCount() > 0) {
-            echo 'success';
-            exit;
+        if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $destination)) {
+            $pic_data = $destination;
         } else {
-            echo 'error_database';
-            exit;
+            echo "<script>alert('Error uploading profile picture!');</script>";
+            exit();
         }
-    } else {
-        echo 'error_required_fields';
-        exit;
     }
+
+    // Handle Selfie Upload
+    if (isset($_FILES['selfie']) && $_FILES['selfie']['error'] === UPLOAD_ERR_OK) {
+        $selfie_extension = pathinfo($_FILES['selfie']['name'], PATHINFO_EXTENSION);
+        $new_selfie_name = uniqid('selfie_') . '.' . $selfie_extension;
+        $selfie_path = $upload_directory . $new_selfie_name;
+
+        if (!move_uploaded_file($_FILES['selfie']['tmp_name'], $selfie_path)) {
+            echo "<script>alert('Error uploading selfie!');</script>";
+            header("Location: register.php");
+
+            exit();
+        }
+    }
+
+    $user_data = [
+        'first_name' => getPostData('first_name'),
+        'middle_name' => getPostData('middle_name'),
+        'last_name' => getPostData('last_name'),
+        'extension_name' => getPostData('extension_name'),
+        'cp_number' => getPostData('cp_number'),
+        'password' => getPostData('password'),
+        'confirm_password' => getPostData('confirm_password'),
+        'accountType' => getPostData('accountType'),
+        'barangay_name' => getPostData('barangay'),
+        'security_question' => getPostData('security_question'),
+        'security_answer' => getPostData('security_answer'),
+        'civil_status' => getPostData('civil_status'),
+        'nationality' => getPostData('nationality'),
+        'age' => getPostData('age'),
+        'birth_date' => getPostData('birth_date'),
+        'gender' => getPostData('gender'),
+        'place_of_birth' => getPostData('place_of_birth'),
+        'purok' => getPostData('purok'),
+        'educational_background' => getPostData('educational_background'),
+        'pic_data' => $pic_data, // Store uploaded profile picture path
+        'selfie_path' => $selfie_path // Store uploaded selfie path
+    ];
+
+    if (in_array(null, $user_data, true)) {
+        echo "<script>alert('Please fill out all required fields!');</script>";
+        exit();
+    }
+    
+    if ($user_data['password'] !== $user_data['confirm_password']) {
+        echo "<script>alert('Passwords do not match!');</script>";
+        exit();
+    }
+    
+    if (!isStrongPassword($user_data['password'])) {
+        echo "<script>alert('Weak password! It must have uppercase, lowercase, number, and special character.');</script>";
+        exit();
+    }
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM tbl_users WHERE cp_number = ?");
+    $stmt->execute([$user_data['cp_number']]);
+    if ($stmt->fetchColumn() > 0) {
+        echo "<script>alert('CP Number already exists!');</script>";
+        exit();
+    }
+    
+    // Generate OTP
+    $otp = rand(100000, 999999);
+    $_SESSION['otp'] = $otp;
+    $_SESSION['user_data'] = $user_data;
+    
+    // Send OTP via Semaphore
+    sendOTP($user_data['cp_number'], $otp);
+
+    // Redirect to OTP verification page
+    header("Location: otp_verification.php");
+    exit();
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -256,12 +221,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div id="password-strength" class="progress mt-2" style="height: 10px;">
         <div id="strength-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
     </div>
-    <small id="strength-text" class="form-text"></small>
+    <small id="strength-text" class="form-text"></small> 
+
 </div>
 <div class="col-md-6 mb-3">
     <label for="confirm_password" class="form-label">Re-enter Password:</label>
     <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Re-enter your password" required>
-
+    <div id="confirm-password-strength" class="progress mt-2" style="height: 10px;">
+        <div id="confirm-strength-bar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+    </div>
+    <small id="confirm-strength-text" class="form-text"></small>
 
 </div>
 
@@ -270,36 +239,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="col-md-6 mb-3">
                     <label for="accountType" class="form-label">Account Type:</label>
                     <select id="accountType" name="accountType" class="form-select" required>
-                        <option value="Barangay Official">Barangay Official</option>
-                        <option value="PNP Officer">PNP Officer</option>
                         <option value="Resident">Resident</option>
                     </select>
                 </div>
 
                 <!-- Barangay Select -->
                 <div class="col-md-6 mb-3">
-                    <label for="barangay" class="form-label">Barangay:</label>
-                    <select id="barangay" name="barangay" class="form-select" required>
-                        <?php
-                        // Array of barangays of echague
-                        $barangays = [
-                            "Angoluan", "Annafunan", "Arabiat", "Aromin", "Babaran", "Bacradal", "Benguet", "Buneg", "Busilelao", "Cabugao (Poblacion)",
-                            "Caniguing", "Carulay", "Castillo", "Dammang East", "Dammang West", "Diasan", "Dicaraoyan", "Dugayong", "Fugu", "Garit Norte",
-                            "Garit Sur", "Gucab", "Gumbauan", "Ipil", "Libertad", "Mabbayad", "Mabuhay", "Madadamian", "Magleticia", "Malibago", "Maligaya",
-                            "Malitao", "Narra", "Nilumisu", "Pag-asa", "Pangal Norte", "Pangal Sur", "Rumang-ay", "Salay", "Salvacion", "San Antonio Ugad",
-                            "San Antonio Minit", "San Carlos", "San Fabian", "San Felipe", "San Juan", "San Manuel (formerly Atelan)", "San Miguel", "San Salvador",
-                            "Santa Ana", "Santa Cruz", "Santa Maria", "Santa Monica", "Santo Domingo", "Silauan Sur (Poblacion)", "Silauan Norte (Poblacion)",
-                            "Sinabbaran", "Soyung (Poblacion)", "Taggappan (Poblacion)", "Villa Agullana", "Villa Concepcion", "Villa Cruz", "Villa Fabia",
-                            "Villa Gomez", "Villa Nuesa", "Villa Padian", "Villa Pereda", "Villa Quirino", "Villa Remedios", "Villa Serafica", "Villa Tanza",
-                            "Villa Verde", "Villa Vicenta", "Villa Ysmael (formerly T. Belen)"
-                        ];
+                    <label for="barangay" class="form-label">Address: tang ina mo princesss</label>
+                    <input type="text" id="barangay" name="barangay" class="form-control" required>
 
-                        // Display barangays as options
-                        foreach ($barangays as $barangay) {
-                            echo "<option value=\"$barangay\">$barangay</option>";
-                        }
-                        ?>
-                    </select>
                 </div>
 
 
@@ -450,133 +398,87 @@ document.getElementById('cp_number').addEventListener('input', function (e) {
 
 
 
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('registerForm');
-
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-
-                const formData = new FormData(form);
-
-                fetch('register.php', {
-                    method: 'POST',
-                    body: formData,
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text();
-                })
-                .then(result => {
-                    if (result === 'success') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            text: 'Registration successful!'
-                        }).then(() => {
-                            window.location.href = 'login.php'; // Redirect to login page
-                        });
-                    } else if (result === 'error_password') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Passwords do not match!'
-                        });
-                    } else if (result === 'error_email_exists') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Email already exists!'
-                        });
-                    } else if (result === 'error_required_fields') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'All fields are required!'
-                        });
-                    } else if (result === 'error_weak_password') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Password is too weak!'
-                        });
-                    } else if (result === 'error_file_upload') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'File upload error!'
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Oops...',
-                            text: 'Registration failed!'
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Oops...',
-                        text: 'Registration failed!'
-                    });
-                });
-            });
-        });
 
 
+     // Password Strength Indicator
+document.getElementById('password').addEventListener('input', function() {
+    var password = this.value;
+    var strengthBar = document.getElementById('strength-bar');
+    var strengthText = document.getElementById('strength-text');
+    var strength = 0;
 
-
-
-        function assessPasswordStrength(password) {
-        let strength = 0;
-
-        // Check for various password strength criteria
-        if (password.length >= 8) strength++; // Length
-        if (/[A-Z]/.test(password)) strength++; // Uppercase letters
-        if (/[a-z]/.test(password)) strength++; // Lowercase letters
-        if (/\d/.test(password)) strength++; // Numbers
-        
-        // Check for special characters
-        if (/[@$!%*?&]/.test(password)) {
-            strength = 4; // Directly assign maximum strength if a special character is found
-        }
-
-        return strength;
+    // Check password strength
+    if (password.length >= 8) {
+        strength += 25; // Length check
+    }
+    if (/[A-Z]/.test(password)) {
+        strength += 25; // Uppercase check
+    }
+    if (/[a-z]/.test(password)) {
+        strength += 25; // Lowercase check
+    }
+    if (/\d/.test(password)) {
+        strength += 25; // Number check
     }
 
-    document.getElementById('password').addEventListener('input', function() {
-        const password = this.value;
-        const strengthBar = document.getElementById('strength-bar');
-        const strengthText = document.getElementById('strength-text');
-        const strength = assessPasswordStrength(password);
-        
-        // Determine strength level and update the progress bar
-        switch (strength) {
-            case 0:
-            case 1:
-                strengthBar.style.width = '20%';
-                strengthBar.className = 'progress-bar weak';
-                strengthText.innerText = 'Weak';
-                break;
-            case 2:
-                strengthBar.style.width = '50%';
-                strengthBar.className = 'progress-bar medium';
-                strengthText.innerText = 'Medium';
-                break;
-            case 3:
-            case 4:
-                strengthBar.style.width = '100%';
-                strengthBar.className = 'progress-bar strong';
-                strengthText.innerText = 'Strong';
-                break;
-            default:
-                strengthBar.style.width = '0%';
-                strengthText.innerText = '';
+    // Update the password strength bar and text
+    strengthBar.style.width = strength + '%';
+    strengthBar.setAttribute('aria-valuenow', strength);
+
+    if (strength < 25) {
+        strengthText.textContent = 'Poor';
+        strengthBar.className = 'progress-bar bg-danger';
+    } else if (strength < 50) {
+        strengthText.textContent = 'Weak';
+        strengthBar.className = 'progress-bar bg-warning';
+    } else if (strength < 75) {
+        strengthText.textContent = 'Fair';
+        strengthBar.className = 'progress-bar bg-info';
+    } else {
+        strengthText.textContent = 'Strong';
+        strengthBar.className = 'progress-bar bg-success';
+    }
+
+    // Match the password and confirm password
+    checkPasswordMatch();
+});
+
+// Confirm Password Strength Indicator
+document.getElementById('confirm_password').addEventListener('input', function() {
+    checkPasswordMatch();
+});
+
+// Function to check if password and confirm password match
+function checkPasswordMatch() {
+    var password = document.getElementById('password').value;
+    var confirmPassword = document.getElementById('confirm_password').value;
+    var confirmStrengthBar = document.getElementById('confirm-strength-bar');
+    var confirmStrengthText = document.getElementById('confirm-strength-text');
+
+    if (confirmPassword.length > 0) {
+        if (password === confirmPassword) {
+            confirmStrengthBar.style.width = '100%';
+            confirmStrengthBar.setAttribute('aria-valuenow', 100);
+            confirmStrengthText.textContent = 'Passwords Match';
+            confirmStrengthBar.className = 'progress-bar bg-success';
+        } else {
+            confirmStrengthBar.style.width = '50%';
+            confirmStrengthBar.setAttribute('aria-valuenow', 50);
+            confirmStrengthText.textContent = 'Passwords Do Not Match';
+            confirmStrengthBar.className = 'progress-bar bg-danger';
         }
-    });
+    } else {
+        confirmStrengthBar.style.width = '0%';
+        confirmStrengthBar.setAttribute('aria-valuenow', 0);
+        confirmStrengthText.textContent = '';
+        confirmStrengthBar.className = 'progress-bar bg-light';
+    }
+}
+
+
+
+<?php if (!empty($alertMessage)) { echo $alertMessage; } ?>
+
     </script>
 </body>
 </html>

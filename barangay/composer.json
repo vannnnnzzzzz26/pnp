@@ -1,0 +1,6 @@
+{
+    "require": {
+        "tecnickcom/tcpdf": "^6.8",
+        "kickstartph/semaphore-client": "^0.5.0"
+    }
+}

@@ -42,11 +42,11 @@
             <li class="nav-item">
                
 
-                <li class="nav-item">
+             <!--   <li class="nav-item">
                 <a class="nav-link" href="pnp-announcement.php">
                     <i class="bi bi-card-text large-icon"></i><span class="nav-text">Announcements</span>
                 </a>
-            </li>
+            </li>  -->
             <li class="nav-item">
         <a class="nav-link" href="login_logs.php"><i class="bi bi-people-fill"></i><span class="nav-text">Login Logs</span></a>
         </li>

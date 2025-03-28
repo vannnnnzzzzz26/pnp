@@ -1,6 +1,10 @@
 <?php
 include '../connection/dbconn.php';
 session_start();
+
+$route = isset($_GET['route']) ? $_GET['route'] : 'home';
+
+
 // In your auth.php or at the top of each protected page
 if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 1800)) {
     // Last request was more than 30 minutes ago

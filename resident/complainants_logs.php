@@ -30,6 +30,8 @@ $stmt = $pdo->prepare("
     LEFT JOIN tbl_hearing_history h ON c.complaints_id = h.complaints_id
     WHERE c.complaint_name = ?
     GROUP BY c.complaints_id
+      ORDER BY c.date_filed DESC
+        
 ");
 
 $stmt->execute([$userFullName]);
@@ -130,12 +132,12 @@ include '../includes/resident-bar.php';
                                 <tr>
                                     <th>#</th> <!-- Row number -->
                                     <th scope="col">Complaint Name</th>
-                                    <th scope="col">date filed</th>
-                                    <th scope="col">Ano (What)</th>
-                                    <th scope="col">Saan (Where)</th>
-                                    <th scope="col">Kailan (When)</th>
-                                    <th scope="col">Paano (How)</th>
-                                    <th scope="col">Bakit (Why)</th>
+                                    <th scope="col">Date filed</th>
+                                    <th scope="col"> What</th>
+                                    <th scope="col"> Where</th>
+                                    <th scope="col"> When</th>
+                                    <th scope="col"> How</th>
+                                    <th scope="col"> Why</th>
                                     <th scope="col">View Details</th>
                                 </tr>
                             </thead>
@@ -149,7 +151,7 @@ include '../includes/resident-bar.php';
                                         <td><?php echo htmlspecialchars($complaint['date_filed']); ?></td>
                                         <td><?php echo htmlspecialchars($complaint['ano']); ?></td>
                                         <td><?php echo htmlspecialchars($complaint['barangay_saan']); ?></td>
-                                        <td><?php echo htmlspecialchars($complaint['kailan']); ?></td>
+                                        <td><?php echo htmlspecialchars($complaint['kailan_date']) . ' ' . htmlspecialchars($complaint['kailan_time']); ?></td>
                                         <td><?php echo htmlspecialchars($complaint['paano']); ?></td>
                                         <td><?php echo htmlspecialchars($complaint['bakit']); ?></td>
                                         <td>

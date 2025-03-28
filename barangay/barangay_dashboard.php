@@ -3,138 +3,88 @@ session_start();
 include '../connection/dbconn.php';
 include '../includes/bypass.php';
 
-
 // Fetch user information from session
 $firstName = $_SESSION['first_name'] ?? '';
 $middleName = $_SESSION['middle_name'] ?? '';
 $lastName = $_SESSION['last_name'] ?? '';
 $extensionName = $_SESSION['extension_name'] ?? '';
-$email = $_SESSION['email'] ?? '';
+$cp_number = $_SESSION['cp_number'] ?? '';
 $barangay_name = $_SESSION['barangay_name'] ?? '';
+$barangay_saan = $_SESSION['barangay_saan'] ?? '';
 $pic_data = $_SESSION['pic_data'] ?? '';
 
 // Get filters from GET request
-$year = isset($_GET['year']) ? intval($_GET['year']) : '';
-$month = isset($_GET['month']) ? intval($_GET['month']) : '';
-$month_from = isset($_GET['month_from']) ? intval($_GET['month_from']) : '';
-$month_to = isset($_GET['month_to']) ? intval($_GET['month_to']) : '';
+$from_date = isset($_GET['from_date']) ? $_GET['from_date'] : '';
+$to_date = isset($_GET['to_date']) ? $_GET['to_date'] : '';
 
 // Function to fetch dashboard data
-function fetchDashboardData($pdo, $year, $month,  $month_from, $month_to) {
+function fetchDashboardData($pdo, $from_date, $to_date, $barangay_name) {
     try {
-        $dateConditions = [];
-        $paramsSettledBarangay = [];
-        $paramsRejected = [];
-        
+        $whereClauses = ["c.barangay_saan = ?"];
+        $params = [$barangay_name];
 
-        if ($year) {
-            $dateConditions[] = "YEAR(c.date_filed) = ?";
-            $paramsTotal[] = $year;
-            $paramsSettledBarangay[] = $year;
-            $paramsRejected[] = $year;
+        // Add date range filter
+        if ($from_date && $to_date) {
+            $whereClauses[] = "c.date_filed BETWEEN ? AND ?";
+            $params[] = $from_date;
+            $params[] = $to_date;
+        } elseif ($from_date) {
+            $whereClauses[] = "c.date_filed >= ?";
+            $params[] = $from_date;
+        } elseif ($to_date) {
+            $whereClauses[] = "c.date_filed <= ?";
+            $params[] = $to_date;
         }
 
-        if ($month) {
-            $dateConditions[] = "MONTH(c.date_filed) = ?";
-            $paramsSettledBarangay[] = $month;
-            $paramsRejected[] = $month;
-        }
+        $whereSql = $whereClauses ? ' WHERE ' . implode(' AND ', $whereClauses) : '';
 
-        if ($month_from && $month_to) {
-            $dateConditions[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
-            $paramsTotal[] = $month_from;
-            $paramsTotal[] = $month_to;
-            $paramsSettledBarangay[] = $month_from;
-            $paramsSettledBarangay[] = $month_to;
-            $paramsRejected[] = $month_from;
-            $paramsRejected[] = $month_to;
-        } elseif ($month_from) {
-            $dateConditions[] = "MONTH(c.date_filed) >= ?";
-            $paramsTotal[] = $month_from;
-            $paramsSettledBarangay[] = $month_from;
-            $paramsRejected[] = $month_from;
-        } elseif ($month_to) {
-            $dateConditions[] = "MONTH(c.date_filed) <= ?";
-            $paramsTotal[] = $month_to;
-            $paramsSettledBarangay[] = $month_to;
-            $paramsRejected[] = $month_to;
-        }
-
-        $dateSql = $dateConditions ? implode(' AND ', $dateConditions) : '';
-
-        // Fetch total complaints
-        $whereSql = $dateSql ? 'WHERE ' . $dateSql : '';
-        $stmtTotal = $pdo->prepare("SELECT COUNT(*) AS total_complaints FROM tbl_complaints c $whereSql");
-        $totalComplaints = $stmtTotal->fetchColumn();
-
-        // Fetch settled in Barangay
-        $additionalWhere = $dateSql ? ' AND ' . $dateSql : '';
-        $stmtSettledBarangay = $pdo->prepare("SELECT COUNT(*) AS settled_in_barangay FROM tbl_complaints c WHERE c.status = 'settled_in_barangay' AND c.responds = 'barangay' $additionalWhere");
-        $stmtSettledBarangay->execute($paramsSettledBarangay);
-        $settledInBarangay = $stmtSettledBarangay->fetchColumn();
-
-        // Fetch rejected complaints
-        $stmtRejected = $pdo->prepare("SELECT COUNT(*) AS rejected FROM tbl_complaints c WHERE c.status = 'rejected' $additionalWhere");
-        $stmtRejected->execute($paramsRejected);
-        $rejected = $stmtRejected->fetchColumn();
-
-        return [
-            'totalComplaints' => $totalComplaints,
-            'settledInBarangay' => $settledInBarangay,
-            'rejected' => $rejected
-        ];
+        $stmt = $pdo->prepare("
+            SELECT 
+                SUM(CASE WHEN c.status = 'Rejected' THEN 1 ELSE 0 END) AS rejected,
+                SUM(CASE WHEN c.status = 'settled_in_barangay' THEN 1 ELSE 0 END) AS settled_in_barangay,
+                SUM(CASE WHEN c.status = 'Approved' THEN 1 ELSE 0 END) AS Approved,
+                SUM(CASE WHEN c.status = 'inprogress' THEN 1 ELSE 0 END) AS inprogress,
+                SUM(CASE WHEN c.status = 'pnp' THEN 1 ELSE 0 END) AS pnp
+            FROM tbl_complaints c
+            $whereSql
+        ");
+        $stmt->execute($params);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         echo json_encode(['error' => $e->getMessage()]);
         exit;
     }
 }
 
-$data = fetchDashboardData($pdo, $year, $month,  $month_from, $month_to);
+// Call the function with the correct parameter order
+$data = fetchDashboardData($pdo, $from_date, $to_date, $barangay_name);
 
 // Fetch complaints by barangay data
-function fetchComplaintsByBarangay($pdo, $year, $month,  $month_from, $month_to) {
+function fetchComplaintsByBarangay($pdo, $from_date, $to_date) {
     try {
         $whereClauses = [];
         $params = [];
 
-        if ($year) {
-            $whereClauses[] = "YEAR(c.date_filed) = ?";
-            $params[] = $year;
+        // Add date range filter
+        if ($from_date && $to_date) {
+            $whereClauses[] = "c.date_filed BETWEEN ? AND ?";
+            $params[] = $from_date;
+            $params[] = $to_date;
+        } elseif ($from_date) {
+            $whereClauses[] = "c.date_filed >= ?";
+            $params[] = $from_date;
+        } elseif ($to_date) {
+            $whereClauses[] = "c.date_filed <= ?";
+            $params[] = $to_date;
         }
 
-        if ($month) {
-            $whereClauses[] = "MONTH(c.date_filed) = ?";
-            $params[] = $month;
-        }
-
-
-        if ($month_from && $month_to) {
-            $dateConditions[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
-            $paramsTotal[] = $month_from;
-            $paramsTotal[] = $month_to;
-          
-            $paramsSettledBarangay[] = $month_from;
-            $paramsSettledBarangay[] = $month_to;
-            $paramsRejected[] = $month_from;
-            $paramsRejected[] = $month_to;
-        } elseif ($month_from) {
-            $dateConditions[] = "MONTH(c.date_filed) >= ?";
-            $paramsSettledBarangay[] = $month_from;
-            $paramsRejected[] = $month_from;
-        } elseif ($month_to) {
-            $dateConditions[] = "MONTH(c.date_filed) <= ?";
-            $paramsTotal[] = $month_to;
-            $paramsSettledBarangay[] = $month_to;
-            $paramsRejected[] = $month_to;
-        }
         $whereSql = $whereClauses ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
         $stmt = $pdo->prepare("
-            SELECT ub.barangay_name, COUNT(c.complaints_id) AS complaint_count
+            SELECT c.barangay_saan, COUNT(c.complaints_id) AS complaint_count
             FROM tbl_complaints c
-            JOIN tbl_users_barangay ub ON c.barangays_id = ub.barangays_id
             $whereSql
-            GROUP BY ub.barangay_name
+            GROUP BY c.barangay_saan
         ");
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -144,35 +94,28 @@ function fetchComplaintsByBarangay($pdo, $year, $month,  $month_from, $month_to)
     }
 }
 
-$barangayData = fetchComplaintsByBarangay($pdo, $year, $month,  $month_from, $month_to);
+// Example usage
+$barangayData = fetchComplaintsByBarangay($pdo, $from_date, $to_date);
 
-// Fetch gender data
-// Fetch gender data
-function fetchPurokData($pdo, $year, $month, $barangay_name, $month_from, $month_to) {
+// Fetch other data (gender, categories, etc.) following the same pattern
+
+// Function to fetch purok data
+function fetchPurokData($pdo, $from_date, $to_date, $barangay_name) {
     try {
         $whereClauses = ["ub.barangay_name = ?"];
         $params = [$barangay_name];
 
-        if ($year) {
-            $whereClauses[] = "YEAR(c.date_filed) = ?";
-            $params[] = $year;
-        }
-
-        if ($month) {
-            $whereClauses[] = "MONTH(c.date_filed) = ?";
-            $params[] = $month;
-        }
-
-        if ($month_from && $month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
-            $params[] = $month_from;
-            $params[] = $month_to;
-        } elseif ($month_from) {
-            $whereClauses[] = "MONTH(c.date_filed) >= ?";
-            $params[] = $month_from;
-        } elseif ($month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) <= ?";
-            $params[] = $month_to;
+        // Add date range filter
+        if ($from_date && $to_date) {
+            $whereClauses[] = "c.date_filed BETWEEN ? AND ?";
+            $params[] = $from_date;
+            $params[] = $to_date;
+        } elseif ($from_date) {
+            $whereClauses[] = "c.date_filed >= ?";
+            $params[] = $from_date;
+        } elseif ($to_date) {
+            $whereClauses[] = "c.date_filed <= ?";
+            $params[] = $to_date;
         }
 
         $whereSql = $whereClauses ? ' AND ' . implode(' AND ', $whereClauses) : '';
@@ -194,35 +137,25 @@ function fetchPurokData($pdo, $year, $month, $barangay_name, $month_from, $month
 }
 
 // Usage
-$purokData = fetchPurokData($pdo, $year, $month, $barangay_name, $month_from, $month_to);
+$purokData = fetchPurokData($pdo, $from_date, $to_date, $barangay_name);
 
-
-/// Fetch complaint categories data
-function fetchComplaintCategoriesData($pdo, $year, $month, $barangay_name, $month_from, $month_to) {
+// Function to fetch complaint categories data
+function fetchComplaintCategoriesData($pdo, $from_date, $to_date, $barangay_name) {
     try {
-        $whereClauses = ["ub.barangay_name = ?"];
+        $whereClauses = ["c.barangay_saan = ?"];
         $params = [$barangay_name];
 
-        if ($year) {
-            $whereClauses[] = "YEAR(c.date_filed) = ?";
-            $params[] = $year;
-        }
-
-        if ($month) {
-            $whereClauses[] = "MONTH(c.date_filed) = ?";
-            $params[] = $month;
-        }
-
-        if ($month_from && $month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) BETWEEN ? AND ?";
-            $params[] = $month_from;
-            $params[] = $month_to;
-        } elseif ($month_from) {
-            $whereClauses[] = "MONTH(c.date_filed) >= ?";
-            $params[] = $month_from;
-        } elseif ($month_to) {
-            $whereClauses[] = "MONTH(c.date_filed) <= ?";
-            $params[] = $month_to;
+        // Add date range filter
+        if ($from_date && $to_date) {
+            $whereClauses[] = "c.date_filed BETWEEN ? AND ?";
+            $params[] = $from_date;
+            $params[] = $to_date;
+        } elseif ($from_date) {
+            $whereClauses[] = "c.date_filed >= ?";
+            $params[] = $from_date;
+        } elseif ($to_date) {
+            $whereClauses[] = "c.date_filed <= ?";
+            $params[] = $to_date;
         }
 
         $whereSql = $whereClauses ? ' AND ' . implode(' AND ', $whereClauses) : '';
@@ -231,7 +164,6 @@ function fetchComplaintCategoriesData($pdo, $year, $month, $barangay_name, $mont
             SELECT cc.complaints_category, COUNT(c.complaints_id) AS category_count
             FROM tbl_complaints c
             JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
-            JOIN tbl_users_barangay ub ON c.barangays_id = ub.barangays_id
             WHERE 1=1 $whereSql
             GROUP BY cc.complaints_category
         ");
@@ -243,9 +175,10 @@ function fetchComplaintCategoriesData($pdo, $year, $month, $barangay_name, $mont
     }
 }
 
-
-$categoryData = fetchComplaintCategoriesData($pdo, $year, $month, $barangay_name ,  $month_from, $month_to);
+$categoryData = fetchComplaintCategoriesData($pdo, $from_date, $to_date, $barangay_name);
 ?>
+
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -354,6 +287,10 @@ margin-left: 5rem;
 }
    
 
+body{
+    background-color: #ffffff;
+}
+
     </style>
 </head>
 <body>
@@ -371,82 +308,68 @@ include '../includes/edit-profile.php';
         <div class="card-container">
           
             <div class="card">
-            <i class="fas fa-times-circle" style="font-size:50px; color: red;"></i>
-
-                <h2><?php echo htmlspecialchars($data['rejected']); ?></h2>
-                <p>reject complaints</p>
+            <i class="bi bi-skip-forward-circle-fill" style="font-size:40px; color: cyan;"></i>
+                <h2><?php echo htmlspecialchars($data['pnp'] ?? 0); ?></h2>
+              
+                <p>Forwarded Cases</p>
+                </a>
             </div>
             <div class="card">
-            <i class="fas fa-check-circle" style="font-size:50px;color: blue;"></i>
 
-                <h2><?php echo htmlspecialchars($data['settledInBarangay']); ?></h2>
+            <i class="bi bi-x-octagon" style="font-size:40px; color: red;"></i>
+                <h2><?php echo htmlspecialchars($data['rejected'] ?? 0); ?></h2>
+                <a href="barangaylogs2.php" style="text-decoration: none; color: inherit;">
+                <p>Rejected Complaints</p>
+                </a>
+            </div>
+            <div class="card">
+            <i class="bi bi-person-check" style="font-size:40px;color: blue;"></i>
+                <h2><?php echo htmlspecialchars($data['settled_in_barangay'] ?? 0); ?></h2>
+                <a href="barangaylogs.php" style="text-decoration: none; color: inherit;">
                 <p>Settled in Barangay</p>
+                </a>
+            </div>
+   
+        <div class="card">
+            <i class="bi bi-calendar-check" style="font-size:40px;color: yellow;"></i>
+                <h2><?php echo htmlspecialchars($data['Approved'] ?? 0); ?></h2>
+                <a href="barangay-responder.php" style="text-decoration: none; color: inherit;">
+                <p>Approve Complaints </p>  </a>
+            </div>
+            
+        <div class="card">
+            <i class="bi bi-clock-history" style="font-size:40px;color: orange;"></i>
+                <h2><?php echo htmlspecialchars($data['inprogress'] ?? 0); ?></h2>
+                <a href="manage-complaints.php" style="text-decoration: none; color: inherit;">
+                <p>Pending to Approve</p></a>
             </div>
         </div>
        
 <div class="container mt-4">
 
 
-    <form method="GET" action="">
-        <div class="row mb-4">
-            <div class="col-md-4">
-                <label for="year">Select Year</label>
-                <select name="year" id="year" class="form-control">
-                    <option value="">All Years</option>
-                    <?php
-                    $currentYear = date('Y');
-                    for ($i = $currentYear; $i >= 2000; $i--) {
-                        $selected = ($i == $year) ? 'selected' : '';
-                        echo "<option value='$i' $selected>$i</option>";
-                    }
-                    ?>
-                </select>
-            </div>
-            <div class="col-md-4">
-                <label for="month">Select Month</label>
-                <select name="month" id="month" class="form-control">
-                    <option value="">All Months</option>
-                    <?php
-                    for ($m = 1; $m <= 12; $m++) {
-                        $monthName = date('F', mktime(0, 0, 0, $m, 10));
-                        $selected = ($m == $month) ? 'selected' : '';
-                        echo "<option value='$m' $selected>$monthName</option>";
-                    }
-                    ?>
-                </select>
-            </div>
-            <div class="col-md-2">
-            <label for="month_from">Month From</label>
-            <select name="month_from" id="month_from" class="form-control">
-                <option value="">select</option>
-                <?php
-                for ($m = 1; $m <= 12; $m++) {
-                    $monthName = date('F', mktime(0, 0, 0, $m, 10));
-                    $selected = ($m == $month_from) ? 'selected' : '';
-                    echo "<option value='$m' $selected>$monthName</option>";
-                }
-                ?>
-            </select>
-        </div>
+<div class="row mb-4">
+  
+       
+                <div class="container mt-4">
+                    <form method="get" action="">
+                        <div class="row justify-content-center">
+                            <!-- Month From Filter -->
+                            <div class="col-md-3 mb-3">
+                                <label for="from_date" class="form-label">From Date</label>
+                                <input type="date" id="from_date" name="from_date" class="form-control" value="<?php echo isset($_GET['from_date']) ? $_GET['from_date'] : ''; ?>" onchange="this.form.submit()">
+                            </div>
 
-        <div class="col-md-2">
-            <label for="month_to">Month To</label>
-            <select name="month_to" id="month_to" class="form-control">
-                <option value="">Select</option>
-                <?php
-                for ($m = 1; $m <= 12; $m++) {
-                    $monthName = date('F', mktime(0, 0, 0, $m, 10));
-                    $selected = ($m == $month_to) ? 'selected' : '';
-                    echo "<option value='$m' $selected>$monthName</option>";
-                }
-                ?>
-            </select>
-        </div>
-            <div class="col-md-4">
-                <label>&nbsp;</label><br>
-                <button type="submit" class="btn btn-primary">Filter</button>
-            </div>
-        </div>
+                            <!-- Month To Filter -->
+                            <div class="col-md-3 mb-3">
+                                <label for="to_date" class="form-label">To Date</label>
+                                <input type="date" id="to_date" name="to_date" class="form-control" value="<?php echo isset($_GET['to_date']) ? $_GET['to_date'] : ''; ?>" onchange="this.form.submit()">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+           
+
     
         <div class="row mb-4">
         <div class="col-md-6 mb-4">
@@ -479,16 +402,36 @@ include '../includes/edit-profile.php';
                 </div>
             </div>
         </div>
+
+     
+    <div class="card">
+        <div class="card-body">
+            <h2>Top 5 Complaint Categories</h2>
+
+            <div class="chart-container d-flex justify-content-center align-items-center" style="height: 20rem;">                <canvas id="topCategoriesChart"></canvas>
+            </div>
+            <div class="analytics-info mt-3">
+       
+            </div>
+        </div>
     </div>
 </div>
+    </div>
+</div>
+
+
+
+
+
 
        
     </div>
 </div>
 
+<div id="notificationCard" class="card d-none" style="position: absolute; top: 50px; right: 10px; width: 300px; z-index: 1050;"></div>
 
 
-    <script>
+<script>
 
 document.addEventListener('DOMContentLoaded', function () {
     var profilePic = document.querySelector('.profile');
@@ -515,7 +458,7 @@ var purokChart = new Chart(ctxPurok, {
             data: purokDataValues,
             backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
             borderColor: '#fff',
-            borderWidth: 1
+            borderWidth: 10
         }]
     },
     options: {
@@ -523,7 +466,7 @@ var purokChart = new Chart(ctxPurok, {
         cutout: '50%',
         plugins: {
             legend: {
-                display: false // Hide the legend if needed
+                display: true // Hide the legend if needed
             }
         }
     }
@@ -541,7 +484,7 @@ document.getElementById('purokMaxInfo').textContent = `${purokDataLabels[maxPuro
     var totalCategoryCount = categoryDataValues.reduce((a, b) => a + b, 0); // Total count of complaints in categories
 
     var categoryChart = new Chart(ctxCategory, {
-        type: 'pie', // Changed to pie chart
+        type: 'polarArea', // Changed to pie chart
         data: {
             labels: categoryDataLabels.map((label, index) => `${label} (${((categoryDataValues[index] / totalCategoryCount) * 100).toFixed(1)}%)`), // Add percentages to labels
             datasets: [{
@@ -556,7 +499,7 @@ document.getElementById('purokMaxInfo').textContent = `${purokDataLabels[maxPuro
                     '#5a5c69'  // Gray
                 ],
                 borderColor: '#fff',
-                borderWidth: 1
+                borderWidth: 7
             }]
         },
         options: {
@@ -573,9 +516,186 @@ document.getElementById('purokMaxInfo').textContent = `${purokDataLabels[maxPuro
     // Find the highest value in category data
     var maxCategoryValue = Math.max(...categoryDataValues);
     var maxCategoryIndex = categoryDataValues.indexOf(maxCategoryValue);
+   
     document.getElementById('categoryMaxInfo').textContent = `${categoryDataLabels[maxCategoryIndex]}: ${((maxCategoryValue / totalCategoryCount) * 100).toFixed(1)}%`;
+
+
+
+    var ctxTopCategories = document.getElementById('topCategoriesChart').getContext('2d');
+    var sortedCategoryData = <?php echo json_encode($categoryData); ?> 
+        .sort((a, b) => b.category_count - a.category_count)
+        .slice(0, 5); // ito yung  limit niya 
+
+    var topCategoryLabels = sortedCategoryData.map(item => item.complaints_category);
+    var topCategoryCounts = sortedCategoryData.map(item => item.category_count);
+    var totalTopCategoryCount = topCategoryCounts.reduce((a, b) => a + b, 0);
+
+    // Horizontal Bar Chart  dito  na didisplay yung top 5
+    var topCategoriesChart = new Chart(ctxTopCategories, {
+        type: 'bar',
+        data: {
+            labels: topCategoryLabels.map((label, index) => 
+                `${label} (${((topCategoryCounts[index] / totalTopCategoryCount) * 100).toFixed(1)}%)`),
+            datasets: [{
+                data: topCategoryCounts,
+                backgroundColor: [
+                    '#4e73df', // Blue
+                    '#1cc88a', // Green
+                    '#36b9cc', // Light Blue
+                    '#f6c23e', // Yellow
+                    '#e74a3b'  // Red
+                ],
+                borderColor: '#fff',
+                borderWidth: 10,
+                barBorderRadius: 15
+
+                
+
+            }]
+        },
+        options: {
+            indexAxis: 'y', 
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false 
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: false,
+                        text: 'Number of Complaints'
+                    },
+                    beginAtZero: true
+                },
+                y: {
+                    title: {
+                        display: false, 
+                    }
+                }
+            }
+        }
+    });
+
+  
+    var maxTopCategoryValue = Math.max(...topCategoryCounts);
+    var maxTopCategoryIndex = topCategoryCounts.indexOf(maxTopCategoryValue);
+    document.getElementById('topCategoryInfo').textContent = `${topCategoryLabels[maxTopCategoryIndex]}: ${((maxTopCategoryValue / totalTopCategoryCount) * 100).toFixed(1)}%`;
 });
 
+
+
+
+
+
+
+
+
+
+
+
+
+document.addEventListener("DOMContentLoaded", function () {
+    const notificationButton = document.getElementById('notificationButton');
+    const notificationCountBadge = document.getElementById('notificationCount');
+    const notificationCard = document.getElementById('notificationCard');
+
+    // Toggle the notification card
+    notificationButton.addEventListener('click', function () {
+        notificationCard.classList.toggle('d-none');
+    });
+
+    // Fetch notifications
+    function fetchNotifications() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Filter out notifications with 'Settled in Barangay' and 'Settled in PNP'
+                const filteredNotifications = data.notifications.filter(notification => 
+                    notification.status !== 'Settled in Barangay' && notification.status !== 'Settled in PNP'
+                );
+
+                const notificationCount = filteredNotifications.length;
+
+                if (notificationCount > 0) {
+                    notificationCountBadge.textContent = notificationCount;
+                    notificationCountBadge.classList.remove('d-none');
+                } else {
+                    notificationCountBadge.textContent = "0";
+                    notificationCountBadge.classList.add('d-none');
+                }
+
+                let notificationListHtml = '<div class="card-header">Notifications</div><div class="card-body" style="max-height: 300px; overflow-y: auto;">';
+
+                if (notificationCount > 0) {
+                    filteredNotifications.slice(0, 5).forEach(notification => {
+                        notificationListHtml += `
+                            <div class="card-text border-bottom p-2">
+                                <strong>Complaint:</strong> <a href="barangaylogs.php?complaint=${encodeURIComponent(notification.complaint_name)}&barangay=${encodeURIComponent(notification.barangay_name)}&status=${encodeURIComponent(notification.status)}">${notification.complaint_name}</a><br>
+                                <strong>Barangay:</strong> ${notification.barangay_name}<br>
+                                <strong>Status:</strong> ${notification.status}
+                            </div>`;
+                    });
+                } else {
+                    notificationListHtml += '<div class="text-center">No new notifications</div>';
+                }
+
+                notificationListHtml += '</div>';
+                notificationCard.innerHTML = notificationListHtml;
+
+            } else {
+                console.error("Failed to fetch notifications");
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching notifications:", error);
+        });
+    }
+
+    // Initial fetch
+    fetchNotifications();
+
+    // Refresh notifications every 30 seconds
+    setInterval(fetchNotifications, 30000);
+
+    // Mark notifications as read when the button is clicked
+    notificationButton.addEventListener('click', function () {
+        markNotificationsAsRead();
+    });
+
+    function markNotificationsAsRead() {
+        fetch('notifications.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ markAsRead: true })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                notificationCountBadge.classList.add('d-none');
+            } else {
+                console.error("Failed to mark notifications as read");
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+        });
+    }
+});
 
 function confirmLogout() {
     Swal.fire({
@@ -594,7 +714,7 @@ function confirmLogout() {
 }
 
 </script>
-
+<script src="../scripts/script.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" integrity="sha384-oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
@@ -605,7 +725,7 @@ function confirmLogout() {
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@latest/dist/chartjs-plugin-datalabels.min.js"></script>
 
 
-    <script src="../scripts/script.js"></script>
+
 
 </body>
 </html>

@@ -6,26 +6,20 @@ session_start();
 include '../connection/dbconn.php'; 
 include '../includes/bypass.php';
 
-// Fetch barangay name if not already set in session
-if (!isset($_SESSION['barangay_name']) && isset($_SESSION['barangays_id'])) {
-    $stmt = $pdo->prepare("SELECT barangay_name FROM tbl_users_barangay WHERE barangays_id = ?");
-    $stmt->execute([$_SESSION['barangays_id']]);
-    $_SESSION['barangay_name'] = $stmt->fetchColumn();
-}
+
 
 // Initialize user information
 $firstName = $_SESSION['first_name'];
 $middleName = $_SESSION['middle_name'];
 $lastName = $_SESSION['last_name'];
 $extensionName = isset($_SESSION['extension_name']) ? $_SESSION['extension_name'] : '';
-$email = isset($_SESSION['email']) ? $_SESSION['email'] : '';
+$cp_number = isset($_SESSION['cp_number']) ? $_SESSION['cp_number'] : '';
 $barangay = isset($_SESSION['barangays_id']) ? $_SESSION['barangays_id'] : '';
 $pic_data = isset($_SESSION['pic_data']) ? $_SESSION['pic_data'] : '';
 $birth_date = isset($_SESSION['birth_date']) ? $_SESSION['birth_date'] : '';
 $age = isset($_SESSION['age']) ? $_SESSION['age'] : '';
 $gender = isset($_SESSION['gender']) ? $_SESSION['gender'] : '';
 $barangay_name = isset($_SESSION['barangay_name']) ? $_SESSION['barangay_name'] : '';
-
 // Define pagination variables
 $results_per_page = 10; // Number of results per page
 
@@ -103,6 +97,11 @@ margin-left: 5rem;
             color: #ffffff;
             text-align: center;
         }
+
+
+        body{
+    background-color: #ffffff;
+}
       
     </style>
 </head>
@@ -122,15 +121,54 @@ include '../includes/edit-profile.php';
         
             <table class="table table-bordered table-hover">
             <thead>
+
+
+            <form method="GET">
+    <label class="form-label">Filter by Purok:</label>
+    <select id="purokDropdown" name="purok" onchange="this.form.submit()">
+        <option value="">All</option>
+        <?php
+        $stmtPurok = $pdo->query("SELECT DISTINCT purok FROM tbl_users WHERE purok IS NOT NULL ORDER BY purok");
+        while ($rowPurok = $stmtPurok->fetch(PDO::FETCH_ASSOC)) {
+            $selected = isset($_GET['purok']) && $_GET['purok'] == $rowPurok['purok'] ? 'selected' : '';
+            echo "<option value='{$rowPurok['purok']}' $selected>{$rowPurok['purok']}</option>";
+        }
+        ?>
+    </select>
+</form>
+
+
+
+<form id="statusForm" method="POST">
+    <label for="statusSelect" class="form-label"></label>
+    <select id="statusSelect" name="status" class="form-select form-select-sm" style="width: 150px;" required>
+        <option value="">-- Choose --</option>
+        <option value="settled">Settled</option>
+        <option value="rejected">Rejected</option>
+    </select>
+</form>
+
+<script>
+    document.getElementById("statusSelect").addEventListener("change", function() {
+        var selectedValue = this.value;
+        
+        if (selectedValue === "settled") {
+            window.location.href = "barangaylogs.php";
+        } else if (selectedValue === "rejected") {
+            window.location.href = "barangaylogs2.php";
+        }
+    });
+</script>
+
                         <tr>
                             <th>#</th>
                             <th>Name</th>
                             <th>Date FIled</th>
-                            <th>Ano (What)</th>
-                            <th>Saan ( where)</th>
-                            <th>Kailan (When)</th>
-                            <th>Paano (How)</th>
-                            <th>BAkit (why)</th>
+                            <th> What</th>
+                            <th>  Where</th>
+                            <th> When</th>
+                            <th> How</th>
+                            <th> Why</th>
 
                           
                             <th>Barangay</th>
@@ -146,41 +184,45 @@ try {
     $search_query = isset($_GET['search']) ? '%' . $_GET['search'] . '%' : '%';
 
     // Fetch complaints data with pagination and search filter
+    $purok_filter = isset($_GET['purok']) && !empty($_GET['purok']) ? $_GET['purok'] : '%';
+
     $stmt = $pdo->prepare("
-    SELECT c.*, b.barangay_name, 
-               cc.complaints_category,
-               u.cp_number,          
-               u.gender,            
-               u.place_of_birth,    
-               u.age,               
-                u.nationality,
-                u.educational_background,
-               u.civil_status, e.evidence_path,
-               u.purok
-    FROM tbl_complaints c
-    JOIN tbl_users_barangay b ON c.barangays_id = b.barangays_id
-    JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
-
-              JOIN tbl_users u ON c.user_id = u.user_id  
-
-    LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
-    WHERE (c.status IN ('settled_in_barangay', 'rejected')) AND b.barangay_name = ?
-    AND (c.complaint_name LIKE ? OR c.complaints LIKE ? OR cc.complaints_category LIKE ? OR u.gender LIKE ? OR u.place_of_birth LIKE ? OR u.educational_background LIKE ? OR u.civil_status LIKE ?)
-    ORDER BY c.date_filed ASC
-    LIMIT ?, ?
+        SELECT c.*, b.barangay_name, 
+                   cc.complaints_category,
+                   u.cp_number,          
+                   u.gender,            
+                   u.place_of_birth,    
+                   u.age,               
+                   u.nationality,
+                   u.educational_background,
+                   u.civil_status, e.evidence_path,
+                   u.purok
+        FROM tbl_complaints c
+        JOIN tbl_users_barangay b ON c.barangays_id = b.barangays_id
+        JOIN tbl_complaintcategories cc ON c.category_id = cc.category_id
+        JOIN tbl_users u ON c.user_id = u.user_id  
+        LEFT JOIN tbl_evidence e ON c.complaints_id = e.complaints_id
+        WHERE (c.status IN ('settled_in_barangay')) 
+        AND c.barangay_saan = ?
+        AND u.purok LIKE ?
+        AND (c.complaint_name LIKE ? OR c.complaints LIKE ? OR cc.complaints_category LIKE ? OR u.gender LIKE ? OR u.place_of_birth LIKE ? OR u.educational_background LIKE ? OR u.civil_status LIKE ?)
+        ORDER BY c.date_filed DESC
+        LIMIT ?, ?
     ");
-
+    
     $stmt->bindParam(1, $barangay_name, PDO::PARAM_STR);
-    $stmt->bindParam(2, $search_query, PDO::PARAM_STR);
+    $stmt->bindParam(2, $purok_filter, PDO::PARAM_STR);
     $stmt->bindParam(3, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(4, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(5, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(6, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(7, $search_query, PDO::PARAM_STR);
     $stmt->bindParam(8, $search_query, PDO::PARAM_STR);
-    $stmt->bindParam(9, $start_from, PDO::PARAM_INT);
-    $stmt->bindParam(10, $results_per_page, PDO::PARAM_INT);
+    $stmt->bindParam(9, $search_query, PDO::PARAM_STR);
+    $stmt->bindParam(10, $start_from, PDO::PARAM_INT);
+    $stmt->bindParam(11, $results_per_page, PDO::PARAM_INT);
     $stmt->execute();
+    
 
     if ($stmt->rowCount() == 0) {
         echo "<tr><td colspan='4'>No complaints found.</td></tr>";
@@ -193,7 +235,7 @@ try {
 
             $ano = htmlspecialchars($row['ano']);
             $barangay_saan = htmlspecialchars($row['barangay_saan']);
-            $kailan = htmlspecialchars($row['kailan']);
+            $kailan = htmlspecialchars($row['kailan_date']) . ' ' . htmlspecialchars($row['kailan_time']);
             $paano = htmlspecialchars($row['paano']);
             $bakit = htmlspecialchars($row['bakit']);
 
@@ -293,6 +335,7 @@ $total_pages = ceil($total_results / $results_per_page);
         </div>
     </div>
   
+    <div id="notificationCard" class="card d-none" style="position: absolute; top: 50px; right: 10px; width: 300px; z-index: 1050;"></div>
 
 
     <script src="../scripts/script.js"></script>
@@ -373,74 +416,65 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-
-    
 document.addEventListener("DOMContentLoaded", function () {
     const notificationButton = document.getElementById('notificationButton');
-    const modalBody = document.getElementById('notificationModalBody');
+    const notificationCountBadge = document.getElementById('notificationCount');
+    const notificationCard = document.getElementById('notificationCard');
 
+    // Toggle the notification card
+    notificationButton.addEventListener('click', function () {
+        notificationCard.classList.toggle('d-none');
+    });
+
+    // Fetch notifications
     function fetchNotifications() {
-        return fetch('notifications.php', {
+        fetch('notifications.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json().catch(() => ({ success: false }))) // Handle JSON parsing errors
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
-                const notificationCount = data.notifications.length;
-                const notificationCountBadge = document.getElementById("notificationCount");
+                // Filter out notifications with 'Settled in Barangay' and 'Settled in PNP'
+                const filteredNotifications = data.notifications.filter(notification => 
+                    notification.status !== 'Settled in Barangay' && notification.status !== 'Settled in PNP'
+                );
+
+                const notificationCount = filteredNotifications.length;
 
                 if (notificationCount > 0) {
                     notificationCountBadge.textContent = notificationCount;
-                    notificationCountBadge.classList.remove("d-none");
+                    notificationCountBadge.classList.remove('d-none');
                 } else {
                     notificationCountBadge.textContent = "0";
-                    notificationCountBadge.classList.add("d-none");
+                    notificationCountBadge.classList.add('d-none');
                 }
 
-                let notificationListHtml = '';
+                let notificationListHtml = '<div class="card-header">Notifications</div><div class="card-body" style="max-height: 300px; overflow-y: auto;">';
+
                 if (notificationCount > 0) {
-                    data.notifications.forEach(notification => {
+                    filteredNotifications.slice(0, 5).forEach(notification => {
                         notificationListHtml += `
-                            <div class="dropdown-item" 
-                                 data-id="${notification.complaints_id}" 
-                                 data-status="${notification.status}" 
-                                 data-complaint-name="${notification.complaint_name}" 
-                                 data-barangay-name="${notification.barangay_name}">
-                                Complaint: ${notification.complaint_name}<br>
-                                Barangay: ${notification.barangay_name}<br>
-                                Status: ${notification.status}
-                                 <hr>
-                            </div>
-                        `;
+                            <div class="card-text border-bottom p-2">
+                                <strong>Complaint:</strong> <a href="barangaylogs.php?complaint=${encodeURIComponent(notification.complaint_name)}&barangay=${encodeURIComponent(notification.barangay_name)}&status=${encodeURIComponent(notification.status)}">${notification.complaint_name}</a><br>
+                                <strong>Barangay:</strong> ${notification.barangay_name}<br>
+                                <strong>Status:</strong> ${notification.status}
+                            </div>`;
                     });
                 } else {
-                    notificationListHtml = '<div class="dropdown-item text-center">No new notifications</div>';
+                    notificationListHtml += '<div class="text-center">No new notifications</div>';
                 }
 
-                const popoverInstance = bootstrap.Popover.getInstance(notificationButton);
-                if (popoverInstance) {
-                    popoverInstance.setContent({
-                        '.popover-body': notificationListHtml
-                    });
-                } else {
-                    new bootstrap.Popover(notificationButton, {
-                        html: true,
-                        content: function () {
-                            return `<div class="popover-content">${notificationListHtml}</div>`;
-                        },
-                        container: 'body'
-                    });
-                }
+                notificationListHtml += '</div>';
+                notificationCard.innerHTML = notificationListHtml;
 
-                document.querySelectorAll('.popover-content .dropdown-item').forEach(item => {
-                    item.addEventListener('click', function () {
-                        const notificationId = this.getAttribute('data-id');
-                        markNotificationAsRead(notificationId);
-                    });
-                });
             } else {
                 console.error("Failed to fetch notifications");
             }
@@ -450,31 +484,14 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    function markNotificationAsRead(notificationId) {
-        fetch('notifications.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ notificationId: notificationId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                console.log('Notification marked as read');
-                fetchNotifications(); // Refresh notifications
-            } else {
-                console.error("Failed to mark notification as read");
-            }
-        })
-        .catch(error => {
-            console.error("Error:", error);
-        });
-    }
-
+    // Initial fetch
     fetchNotifications();
 
-    notificationButton.addEventListener('shown.bs.popover', function () {
+    // Refresh notifications every 30 seconds
+    setInterval(fetchNotifications, 30000);
+
+    // Mark notifications as read when the button is clicked
+    notificationButton.addEventListener('click', function () {
         markNotificationsAsRead();
     });
 
@@ -489,10 +506,7 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const badge = document.querySelector(".badge.bg-danger");
-                if (badge) {
-                    badge.classList.add("d-none");
-                }
+                notificationCountBadge.classList.add('d-none');
             } else {
                 console.error("Failed to mark notifications as read");
             }
@@ -502,6 +516,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 });
+
     </script>
 </body>
 </html>
