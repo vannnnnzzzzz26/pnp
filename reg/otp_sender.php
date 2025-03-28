@@ -4,7 +4,7 @@
 function sendOTP($phone_number, $otp) {
     $ch = curl_init();
     $parameters = array(
-        'apikey' => '0a1c1d98b58a36653a8b7c1486b78786', // Replace with actual API key
+        'apikey' =>'', // Replace with actual API key
         'number' => $phone_number, 
         'message' => "Your One Time Password  code is: $otp",
         'sendername' => 'Copwatch'
