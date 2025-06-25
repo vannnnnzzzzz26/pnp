@@ -75,10 +75,10 @@ function sendSMSNotification($phone, $name, $status) {
     $ch = curl_init();
     $message = "Hello $name, your complaint status has been updated to: $status.";
     $parameters = array(
-        'apikey' => '0a1c1d98b58a36653a8b7c1486b78786', // Replace with your actual API key
+        'apikey' => '', // Replace with your actual API key
         'number' => $phone,
         'message' => $message,
-        'sendername' => 'Copwatch'
+        'sendername' => ''
     );
     curl_setopt($ch, CURLOPT_URL, 'https://semaphore.co/api/v4/messages');
     curl_setopt($ch, CURLOPT_POST, 1);
