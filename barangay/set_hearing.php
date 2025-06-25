@@ -14,7 +14,7 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 function sendSMS($message, $recipient) {
     $ch = curl_init();
     $parameters = array(
-        'apikey' => '0a1c1d98b58a36653a8b7c1486b78786', // Your API KEY
+        'apikey' => '', // Your API KEY
         'number' => $recipient,
         'message' => $message,
         'sendername' => 'Copwatch'
